@@ -4,7 +4,7 @@ import shutil
 import pytest
 from pathlib import Path
 
-from devops_exep.cython import Builder
+from devops_exep.builder import Builder
 
 
 @pytest.fixture

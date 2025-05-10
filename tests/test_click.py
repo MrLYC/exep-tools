@@ -1,6 +1,7 @@
 import os
 import pytest
 from unittest.mock import patch, MagicMock
+import click
 
 from devops_exep.click import ExepCommand
 from devops_exep.env import Loader
@@ -31,6 +32,18 @@ class TestCommand:
         assert cmd.key == key
         assert cmd.nonce == ""
         assert cmd.name == "test-command"
+
+    def test_decorator(self, key):
+        @click.group(cls=ExepCommand, key=key)
+        def passed():
+            pass
+
+        @click.group(cls=ExepCommand)
+        def normal():
+            pass
+
+        assert passed.key == key
+        assert normal.key == ""
 
     def test_make_context_without_exep(self, command):
         """Test make_context method when EXEP is not set"""
