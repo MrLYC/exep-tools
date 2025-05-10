@@ -1,7 +1,6 @@
 import base64
 from Crypto.Cipher import AES
 from dataclasses import dataclass, InitVar, field
-from functools import cached_property
 
 
 @dataclass
@@ -28,7 +27,7 @@ class Cipher:
         elif base64_nonce:
             self.nonce = base64.b64decode(base64_nonce)
 
-    @cached_property
+    @property
     def cipher(self):
         return AES.new(self.key, AES.MODE_CTR, nonce=self.nonce)
 
