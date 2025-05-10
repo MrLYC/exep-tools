@@ -68,43 +68,19 @@ def repeat(s, n):
     return temp_dir
 
 
-def test_find_python_files(test_files):
-    """测试查找Python文件的功能"""
-    temp_dir = test_files
-    builder = Builder(root_dir=temp_dir, target="sample_module")
-    files = builder.find_python_files()
-
-    # 应该找到3个Python文件 (不包括tests目录中的文件)
-    assert len(files) == 3  # __init__.py, math_funcs.py, string_funcs.py
-
-    # 验证文件路径
-    file_names = [os.path.basename(f) for f in files]
-    assert "__init__.py" in file_names
-    assert "math_funcs.py" in file_names
-    assert "string_funcs.py" in file_names
-
-    # 确保测试目录中的文件没有被包含
-    for file in files:
-        assert "tests" not in file
-
-
 def test_build(temp_dirs, test_files):
     """测试Cython构建过程"""
     # 注意: 这个测试可能会很慢，因为实际上要进行Cython编译
     temp_dir, target_dir = temp_dirs
 
-    output_dir = os.path.join(target_dir, "output")
-    os.makedirs(output_dir, exist_ok=True)
-    builder = Builder(
-        root_dir=temp_dir,
-        target="sample_module",
-        output_dir=output_dir,
-    )
+    builder = Builder(root_dir=temp_dir)
     builder.build()
 
     # 检查输出目录中是否有编译后的文件
+    # Cython.Build.Cythonize.main(["-i", self.root_dir])会在原地编译
+    # 所以我们需要在temp_dir目录下搜索编译后的文件
     compiled_files = []
-    for root, _, files in os.walk(output_dir):
+    for root, _, files in os.walk(temp_dir):
         for file in files:
             if file.endswith(".so") or file.endswith(".pyd"):
                 compiled_files.append(os.path.join(root, file))
