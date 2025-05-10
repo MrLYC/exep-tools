@@ -12,7 +12,6 @@ packages = [
 python = ">=3.11,<4.0"
 click = "^8.1.8"
 cython = "^3.1.0"
-ast-grep-py = "^0.37.0"
 python-dotenv = "^1.1.0"
 pycryptodome = "^3.22.0"
 python-dateutil = "^2.9.0.post0"
