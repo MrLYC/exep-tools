@@ -24,7 +24,7 @@ class Builder:
             root = SgRoot(file.read(), "python")
 
         node = root.root()
-        hook = node.find(patter="@click.group(cls=ExepCommand)")
+        hook = node.find(pattern="@click.group(cls=ExepCommand)")
         if not hook:
             logger.error("No hook found for ExepCommand")
             return False
@@ -40,6 +40,8 @@ class Builder:
         with open(self.entry_file, "w") as file:
             file.write(result)
             file.truncate()
+
+        return True
 
     def build(self):
         self.inject_loader_key()
