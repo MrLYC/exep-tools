@@ -22,19 +22,19 @@ def encrypted_magic():
 @pytest.fixture
 def command(key):
     """Create a ExepCommand instance for testing"""
-    return ExepCommand(key=key, name="test-command")
+    return ExepCommand(loader_key=key, name="test-command")
 
 
 class TestCommand:
     def test_init(self, key):
         """Test ExepCommand initialization"""
-        cmd = ExepCommand(key=key, name="test-command")
-        assert cmd.key == key
+        cmd = ExepCommand(loader_key=key, name="test-command")
+        assert cmd.loader_key == key
         assert cmd.nonce == ""
         assert cmd.name == "test-command"
 
     def test_decorator(self, key):
-        @click.group(cls=ExepCommand, key=key)
+        @click.group(cls=ExepCommand, loader_key=key)
         def passed():
             pass
 
@@ -42,8 +42,8 @@ class TestCommand:
         def normal():
             pass
 
-        assert passed.key == key
-        assert normal.key == ""
+        assert passed.loader_key == key
+        assert normal.loader_key == ""
 
     def test_make_context_without_exep(self, command):
         """Test make_context method when EXEP is not set"""
@@ -66,7 +66,7 @@ class TestCommand:
 
                 # Verify Loader was created with correct parameters
                 mock_loader_class.assert_called_once_with(
-                    key=command.key, nonce="test-info", magic=encrypted_magic
+                    key=command.loader_key, nonce="test-info", magic=encrypted_magic
                 )
 
                 # Verify load_encrypted_env was called
@@ -101,7 +101,7 @@ class TestCommand:
                 command.make_context("test-info", [])
 
                 # 验证Loader被调用时的参数正确
-                assert command.key == key
+                assert command.loader_key == key
                 assert command.nonce == "test-info"
 
                 # 验证load_encrypted_env被调用
