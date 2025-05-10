@@ -3,7 +3,7 @@ from devops_exep.env import Loader
 import os
 
 
-class Command(BaseCommand):
+class ExepCommand(BaseCommand):
     def __init__(self, key: str = "", *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.key = key

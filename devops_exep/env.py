@@ -125,14 +125,3 @@ class Loader:
 
     def load_env(self, content: str):
         load_dotenv(stream=StringIO(content))
-
-
-def load_encrypted_env_in_click(key: str, magic_env: str = "EXEP") -> bool:
-    magic = os.getenv(magic_env)
-    if not magic:
-        logger.debug("Magic is empty")
-        return False
-
-    ctx = click.get_current_context()
-    loader = Loader(key=key, nonce=ctx.info_name, magic=magic)
-    return loader.load_encrypted_env()

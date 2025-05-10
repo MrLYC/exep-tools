@@ -9,7 +9,7 @@ from io import StringIO
 
 import requests
 import requests_mock
-from devops_exep.env import Loader, load_encrypted_env_in_click
+from devops_exep.env import Loader
 from devops_exep.crypto import Cipher
 
 
@@ -226,17 +226,3 @@ class TestLoader:
         ) as mock_load_env:
             assert loader.load_encrypted_env()
             mock_load_env.assert_called_once_with(decrypted_ex)
-
-
-def test_load_encrypted_env_in_click(magic_env, decrypted_ex, loader_key):
-    """Test the click wrapper function"""
-    with patch("click.get_current_context", return_value=MagicMock(info_name="yakov")):
-        with patch.object(Loader, "load_encrypted_env", return_value=True) as mock_load:
-            assert load_encrypted_env_in_click(loader_key, magic_env)
-            mock_load.assert_called_once()
-
-
-def test_load_encrypted_env_in_click_no_magic(loader_key):
-    """Test the click wrapper function when magic is not set"""
-    with patch("click.get_current_context", return_value=MagicMock(info_name="yakov")):
-        assert not load_encrypted_env_in_click(loader_key, "NON_EXISTENT_MAGIC")

@@ -2,7 +2,7 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 
-from devops_exep.click import Command
+from devops_exep.click import ExepCommand
 from devops_exep.env import Loader
 
 
@@ -20,14 +20,14 @@ def encrypted_magic():
 
 @pytest.fixture
 def command(key):
-    """Create a Command instance for testing"""
-    return Command(key=key, name="test-command")
+    """Create a ExepCommand instance for testing"""
+    return ExepCommand(key=key, name="test-command")
 
 
 class TestCommand:
     def test_init(self, key):
-        """Test Command initialization"""
-        cmd = Command(key=key, name="test-command")
+        """Test ExepCommand initialization"""
+        cmd = ExepCommand(key=key, name="test-command")
         assert cmd.key == key
         assert cmd.nonce == ""
         assert cmd.name == "test-command"
@@ -78,7 +78,7 @@ class TestCommand:
                 mock_super_make_context.assert_called_once_with("test-info", args, None)
 
     def test_integration_with_loader(self, command, key, encrypted_magic):
-        """Test integration between Command and Loader"""
+        """Test integration between ExepCommand and Loader"""
         # 创建一个模拟的Loader实例，它会返回True表示成功加载环境变量
         mock_loader_instance = MagicMock()
         mock_loader_instance.load_encrypted_env.return_value = True
