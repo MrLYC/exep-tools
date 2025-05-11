@@ -14,12 +14,12 @@ include = [
     "exep_tools/**/*.dll",
 ]
 exclude = [
-    "exep_tools/*.pyc",
     "exep_tools/*.py",
+    "exep_tools/*.pyc",
     "exep_tools/*.c",
     "exep_tools/__pycache__",
-    "exep_tools/**/*.pyc",
     "exep_tools/**/*.py",
+    "exep_tools/**/*.pyc",
     "exep_tools/**/*.c",
     "exep_tools/**/__pycache__",
 ]
