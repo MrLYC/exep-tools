@@ -22,14 +22,14 @@ class Builder:
             root = SgRoot(file.read(), "python")
 
         node = root.root()
-        hook = node.find(pattern="@click.group(cls=ExepCommand)")
+        hook = node.find(pattern="@click.group(cls=ExepGroup)")
         if not hook:
-            logger.error("No hook found for ExepCommand")
+            logger.error("No hook found for ExepGroup")
             return False
 
         result = node.commit_edits([
             hook.replace(
-                f"@click.group(cls=ExepCommand, loader_key='{loader_key}')",
+                f"@click.group(cls=ExepGroup, loader_key='{loader_key}')",
             )
         ])
 
