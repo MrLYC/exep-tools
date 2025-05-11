@@ -18,6 +18,16 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class Magic:
+    access_token: str
+    base_url: str
+    until_ts: int
+    ref_name: str = "main"
+    remote_file: str = ".ex"
+    local_file: str = ".ex"
+
+
+@dataclass
 class Loader:
     key: str
     nonce: str
@@ -33,24 +43,25 @@ class Loader:
         cipher = self.cipher
         decrypted_magic = cipher.decrypt_base64(magic).decode()
         dumped_magic = json.loads(decrypted_magic)
+        magic_obj = Magic(**dumped_magic)
 
         if not self.access_token:
-            self.access_token = dumped_magic["access_token"]
+            self.access_token = magic_obj.access_token
 
         if not self.base_url:
-            self.base_url = dumped_magic["base_url"]
+            self.base_url = magic_obj.base_url
 
         if not self.ref_name:
-            self.ref_name = dumped_magic.get("ref_name", "main")
+            self.ref_name = magic_obj.ref_name
 
         if not self.until_ts:
-            self.until_ts = dumped_magic["until_ts"]
+            self.until_ts = magic_obj.until_ts
 
         if not self.remote_file:
-            self.remote_file = dumped_magic.get("remote_file", ".ex")
+            self.remote_file = magic_obj.remote_file
 
         if not self.local_file:
-            self.local_file = dumped_magic.get("local_file", ".ex")
+            self.local_file = magic_obj.local_file
 
     @cached_property
     def cipher(self) -> Cipher:

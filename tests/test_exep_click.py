@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import click
 import pytest
 
-from exep_tools.click import ExepGroup
+from exep_tools import ExepGroup
 
 
 @pytest.fixture
@@ -47,7 +47,7 @@ class TestGroup:
 
     def test_make_context_without_exep(self, group):
         """Test make_context method when EXEP is not set"""
-        with patch.dict(os.environ, {}, clear=True), patch("exep_tools.click.Loader") as mock_loader:
+        with patch.dict(os.environ, {}, clear=True), patch("exep_tools.exep_click.Loader") as mock_loader:
             group.make_context("test-info", ["arg1"])
             assert group.nonce == "test-info"
             # Loader should not be called
@@ -57,7 +57,7 @@ class TestGroup:
         """Test make_context method when EXEP is set"""
         with patch.dict(os.environ, {"EXEP": encrypted_magic}):
             mock_loader = MagicMock()
-            with patch("exep_tools.click.Loader", return_value=mock_loader) as mock_loader_class:
+            with patch("exep_tools.exep_click.Loader", return_value=mock_loader) as mock_loader_class:
                 group.make_context("test-info", ["arg1"])
                 assert group.nonce == "test-info"
 
@@ -92,7 +92,7 @@ class TestGroup:
         mock_loader_instance.load_encrypted_env.return_value = True
 
         with patch.dict(os.environ, {"EXEP": encrypted_magic}):
-            with patch("exep_tools.click.Loader", return_value=mock_loader_instance):
+            with patch("exep_tools.exep_click.Loader", return_value=mock_loader_instance):
                 group.make_context("test-info", ["arg1"])
 
                 # 验证Loader被调用时的参数正确
