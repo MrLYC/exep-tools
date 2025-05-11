@@ -28,7 +28,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          poetry install
+          for i in 1 2 3; do poetry install && break || sleep 5; done
 
       - name: Run make check
         run: |
