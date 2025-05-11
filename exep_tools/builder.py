@@ -1,11 +1,9 @@
-import os
 import logging
-import shutil
+import os
 from dataclasses import dataclass
 
-from Cython.Build.Cythonize import main
-import pathlib
 from ast_grep_py import SgRoot
+from Cython.Build.Cythonize import main
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +18,7 @@ class Builder:
         if not loader_key:
             return False
 
-        with open(self.entry_file, "r") as file:
+        with open(self.entry_file) as file:
             root = SgRoot(file.read(), "python")
 
         node = root.root()
@@ -29,13 +27,11 @@ class Builder:
             logger.error("No hook found for ExepCommand")
             return False
 
-        result = node.commit_edits(
-            [
-                hook.replace(
-                    f"@click.group(cls=ExepCommand, loader_key='{loader_key}')",
-                )
-            ]
-        )
+        result = node.commit_edits([
+            hook.replace(
+                f"@click.group(cls=ExepCommand, loader_key='{loader_key}')",
+            )
+        ])
 
         with open(self.entry_file, "w") as file:
             file.write(result)

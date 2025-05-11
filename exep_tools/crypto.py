@@ -1,6 +1,7 @@
 import base64
+from dataclasses import InitVar, dataclass
+
 from Crypto.Cipher import AES
-from dataclasses import dataclass, InitVar, field
 
 
 @dataclass
@@ -14,9 +15,7 @@ class Cipher:
     key: bytes = b""
     nonce: bytes = b""
 
-    def __post_init__(
-        self, str_key: str, str_nonce: str, base64_key: str, base64_nonce: str
-    ):
+    def __post_init__(self, str_key: str, str_nonce: str, base64_key: str, base64_nonce: str):
         if str_key:
             self.key = str_key.encode()
         elif base64_key:

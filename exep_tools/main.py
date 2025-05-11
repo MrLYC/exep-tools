@@ -1,8 +1,10 @@
-import click
 import base64
 import codecs
-from exep_tools.crypto import Cipher
+
+import click
 from Crypto.Random import get_random_bytes
+
+from exep_tools.crypto import Cipher
 
 
 @click.group()
@@ -24,9 +26,7 @@ def generate_ex_key(length: int):
 @cli.command()
 @click.option("-k", "--key", prompt="Key", help="Key for encrypting .ex")
 @click.option("-d", "--data", prompt="Data", help="Data to encrypt")
-@click.option(
-    "-n", "--nonce", prompt="Nonce", help="Nonce for AES encryption (optional)"
-)
+@click.option("-n", "--nonce", prompt="Nonce", help="Nonce for AES encryption (optional)")
 def encrypt_data(key: str, data: str, nonce: str):
     cipher = Cipher(base64_key=key, str_nonce=nonce)
     encrypted = cipher.encrypt_base64(data.encode("utf-8"))
@@ -36,9 +36,7 @@ def encrypt_data(key: str, data: str, nonce: str):
 @cli.command()
 @click.option("-k", "--key", prompt="Key", help="Key for decrypting .ex")
 @click.option("-d", "--data", prompt="Data", help="Data to decrypt")
-@click.option(
-    "-n", "--nonce", prompt="Nonce", help="Nonce for AES encryption (optional)"
-)
+@click.option("-n", "--nonce", prompt="Nonce", help="Nonce for AES encryption (optional)")
 def decrypt_data(key: str, data: str, nonce: str):
     cipher = Cipher(base64_key=key, str_nonce=nonce)
     decrypted = cipher.decrypt_base64(data)
@@ -47,17 +45,11 @@ def decrypt_data(key: str, data: str, nonce: str):
 
 @cli.command()
 @click.option("-k", "--key", prompt="Key", help="Key for decrypting .ex")
-@click.option(
-    "-i", "--input-file", prompt="Input file", help="Path to the encrypted .ex file"
-)
-@click.option(
-    "-o", "--output", prompt="Output file", help="Path to save the decrypted .ex file"
-)
-@click.option(
-    "-n", "--nonce", prompt="Nonce", help="Nonce for AES encryption (optional)"
-)
+@click.option("-i", "--input-file", prompt="Input file", help="Path to the encrypted .ex file")
+@click.option("-o", "--output", prompt="Output file", help="Path to save the decrypted .ex file")
+@click.option("-n", "--nonce", prompt="Nonce", help="Nonce for AES encryption (optional)")
 def encrypt_ex(key: str, input_file: str, output: str, nonce: str):
-    with open(input_file, "rt") as f:
+    with open(input_file) as f:
         plaintext = f.read()
 
     cipher = Cipher(base64_key=key, str_nonce=nonce)
@@ -71,15 +63,9 @@ def encrypt_ex(key: str, input_file: str, output: str, nonce: str):
 
 @cli.command()
 @click.option("-k", "--key", prompt="Key", help="Key for decrypting .ex")
-@click.option(
-    "-i", "--input-file", prompt="Input file", help="Path to the encrypted .ex file"
-)
-@click.option(
-    "-o", "--output", prompt="Output file", help="Path to save the decrypted .ex file"
-)
-@click.option(
-    "-n", "--nonce", prompt="Nonce", help="Nonce for AES encryption (optional)"
-)
+@click.option("-i", "--input-file", prompt="Input file", help="Path to the encrypted .ex file")
+@click.option("-o", "--output", prompt="Output file", help="Path to save the decrypted .ex file")
+@click.option("-n", "--nonce", prompt="Nonce", help="Nonce for AES encryption (optional)")
 def decrypt_ex(key: str, input_file: str, output: str, nonce: str):
     with open(input_file, "rb") as f:
         encrypted = f.read()

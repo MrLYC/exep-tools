@@ -1,9 +1,9 @@
 import os
-import tempfile
 import shutil
-import pytest
-from pathlib import Path
+import tempfile
 from unittest.mock import patch
+
+import pytest
 
 from exep_tools.builder import Builder
 
@@ -135,12 +135,10 @@ def test_inject_loader_key_with_env(temp_dirs, entry_file):
     assert result is True, "应当成功注入加载器密钥"
 
     # 验证文件是否被正确修改
-    with open(entry_file, "r") as f:
+    with open(entry_file) as f:
         content = f.read()
 
-    assert (
-        "@click.group(cls=ExepCommand, loader_key='test_loader_key')" in content
-    ), "加载器密钥未正确注入"
+    assert "@click.group(cls=ExepCommand, loader_key='test_loader_key')" in content, "加载器密钥未正确注入"
 
 
 def test_inject_loader_key_no_env(temp_dirs, entry_file):
@@ -155,7 +153,7 @@ def test_inject_loader_key_no_env(temp_dirs, entry_file):
         assert result is False, "在没有环境变量的情况下应当返回False"
 
         # 验证文件是否未被修改
-        with open(entry_file, "r") as f:
+        with open(entry_file) as f:
             content = f.read()
 
         assert "@click.group(cls=ExepCommand)" in content, "文件不应被修改"
@@ -224,9 +222,7 @@ def test_pattern_typo_fix():
     # 注意：builder.py 中的 hook = node.find(patter="@click.group(cls=ExepCommand)") 有拼写错误
     # 这个测试是为了确认这个拼写错误不影响功能
 
-    with tempfile.NamedTemporaryFile(
-        mode="w+", suffix=".py", delete=False
-    ) as temp_file:
+    with tempfile.NamedTemporaryFile(mode="w+", suffix=".py", delete=False) as temp_file:
         temp_file.write(
             """
 import click
@@ -249,7 +245,7 @@ def cli():
 
             # 注意：我们可能需要处理实际情况，如果这个拼写错误确实导致功能问题
             if result is False:
-                with open(temp_file_path, "r") as f:
+                with open(temp_file_path) as f:
                     content = f.read()
                 print(
                     f"Warning: 'patter' parameter in node.find() might be causing issues. File content unchanged: {content}"

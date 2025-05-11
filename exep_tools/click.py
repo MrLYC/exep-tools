@@ -1,6 +1,8 @@
-from click import Command as BaseCommand
-from exep_tools.env import Loader
 import os
+
+from click import Command as BaseCommand
+
+from exep_tools.env import Loader
 
 
 class ExepCommand(BaseCommand):

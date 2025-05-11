@@ -112,6 +112,12 @@ ignore = [
     "E501",
     # DoNotAssignLambda
     "E731",
+    # User custom ignore
+    "SIM117",
+    "S105",
+    "RUF003",
+    "TRY003",
+    "RUF002",
 ]
 
 [tool.ruff.format]

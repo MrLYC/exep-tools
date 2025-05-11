@@ -1,10 +1,10 @@
 import os
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import click
+import pytest
 
 from exep_tools.click import ExepCommand
-from exep_tools.env import Loader
 
 
 @pytest.fixture
@@ -47,21 +47,18 @@ class TestCommand:
 
     def test_make_context_without_exep(self, command):
         """Test make_context method when EXEP is not set"""
-        with patch.dict(os.environ, {}, clear=True):
-            with patch("exep_tools.click.Loader") as mock_loader:
-                result = command.make_context("test-info", [])
-                assert command.nonce == "test-info"
-                # Loader should not be called
-                mock_loader.assert_not_called()
+        with patch.dict(os.environ, {}, clear=True), patch("exep_tools.click.Loader") as mock_loader:
+            command.make_context("test-info", [])
+            assert command.nonce == "test-info"
+            # Loader should not be called
+            mock_loader.assert_not_called()
 
     def test_make_context_with_exep(self, command, encrypted_magic):
         """Test make_context method when EXEP is set"""
         with patch.dict(os.environ, {"EXEP": encrypted_magic}):
             mock_loader = MagicMock()
-            with patch(
-                "exep_tools.click.Loader", return_value=mock_loader
-            ) as mock_loader_class:
-                result = command.make_context("test-info", [])
+            with patch("exep_tools.click.Loader", return_value=mock_loader) as mock_loader_class:
+                command.make_context("test-info", [])
                 assert command.nonce == "test-info"
 
                 # Verify Loader was created with correct parameters
@@ -78,9 +75,7 @@ class TestCommand:
             parent = MagicMock()
             with patch("click.Command.make_context") as mock_super_make_context:
                 command.make_context("test-info", ["arg1"], parent=parent)
-                mock_super_make_context.assert_called_once_with(
-                    "test-info", ["arg1"], parent
-                )
+                mock_super_make_context.assert_called_once_with("test-info", ["arg1"], parent)
 
     def test_make_context_args_forwarding(self, command):
         """Test that args are correctly forwarded to super().make_context"""

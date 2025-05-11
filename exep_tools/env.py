@@ -1,17 +1,18 @@
-from dataclasses import dataclass, InitVar
-import requests
-from urllib.parse import urljoin
-from dateutil import parser as dateutil_parser
-from datetime import datetime
-from io import StringIO
-from exep_tools.crypto import Cipher
 import codecs
+import json
 import logging
 import os
-import json
-from dotenv import load_dotenv
-import click
+from dataclasses import InitVar, dataclass
+from datetime import datetime
 from functools import cached_property
+from io import StringIO
+from urllib.parse import urljoin
+
+import requests
+from dateutil import parser as dateutil_parser
+from dotenv import load_dotenv
+
+from exep_tools.crypto import Cipher
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ class Loader:
             ),
             headers={"PRIVATE-TOKEN": self.access_token},
             params={"ref": self.ref_name},
+            timeout=60,
         )
         response.raise_for_status()
 
@@ -82,7 +84,7 @@ class Loader:
         if not os.path.exists(self.local_file):
             raise FileNotFoundError(f"File not found: {self.local_file}")
 
-        with open(self.local_file, "rt") as f:
+        with open(self.local_file) as f:
             content = f.read()
         return content, datetime.fromtimestamp(os.path.getmtime(self.local_file))
 
@@ -99,9 +101,7 @@ class Loader:
                     f.write(content)
 
         if mtime > until_time:
-            raise RuntimeError(
-                f"EXEP is no longer valid, last modified time: {mtime}, expired time: {until_time}"
-            )
+            raise RuntimeError(f"EXEP is no longer valid, last modified time: {mtime}, expired time: {until_time}")
 
         return content
 

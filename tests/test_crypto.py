@@ -1,5 +1,5 @@
 import base64
-import pytest
+
 from exep_tools.crypto import Cipher
 
 

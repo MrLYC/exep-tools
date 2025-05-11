@@ -1,16 +1,14 @@
-import os
-import json
-import codecs
 import base64
-import pytest
-from unittest.mock import patch, MagicMock, mock_open
+import codecs
+import json
+import os
 from datetime import datetime, timedelta
-from io import StringIO
+from unittest.mock import mock_open, patch
 
-import requests
-import requests_mock
-from exep_tools.env import Loader
+import pytest
+
 from exep_tools.crypto import Cipher
+from exep_tools.env import Loader
 
 
 @pytest.fixture
@@ -140,10 +138,11 @@ class TestLoader:
         mock_content = "local encrypted content"
         mock_time = 1746858062  # 2025-05-10 in epoch time
 
-        with patch("os.path.exists", return_value=True), patch(
-            "builtins.open", mock_open(read_data=mock_content)
-        ), patch("os.path.getmtime", return_value=mock_time):
-
+        with (
+            patch("os.path.exists", return_value=True),
+            patch("builtins.open", mock_open(read_data=mock_content)),
+            patch("os.path.getmtime", return_value=mock_time),
+        ):
             content, date = loader.get_local_file()
 
             assert content == mock_content
@@ -168,12 +167,14 @@ class TestLoader:
         mock_time = datetime.now().timestamp()
 
         # Mock the get_local_file method to return our test content
-        with patch.object(
-            loader,
-            "get_local_file",
-            return_value=(mock_local_content, datetime.fromtimestamp(mock_time)),
-        ), patch.object(loader, "get_remote_file") as mock_get_remote:
-
+        with (
+            patch.object(
+                loader,
+                "get_local_file",
+                return_value=(mock_local_content, datetime.fromtimestamp(mock_time)),
+            ),
+            patch.object(loader, "get_remote_file") as mock_get_remote,
+        ):
             content = loader.get_file()
 
             assert content == mock_local_content
@@ -188,16 +189,15 @@ class TestLoader:
         loader.local_file = "nonexistent.ex"
 
         # Mock get_local_file to raise FileNotFoundError
-        with patch.object(
-            loader, "get_local_file", side_effect=FileNotFoundError
-        ), patch.object(
-            loader,
-            "get_remote_file",
-            return_value=(mock_remote_content, datetime.now()),
-        ), patch(
-            "builtins.open", mock_open()
-        ) as mock_file:
-
+        with (
+            patch.object(loader, "get_local_file", side_effect=FileNotFoundError),
+            patch.object(
+                loader,
+                "get_remote_file",
+                return_value=(mock_remote_content, datetime.now()),
+            ),
+            patch("builtins.open", mock_open()) as mock_file,
+        ):
             content = loader.get_file()
 
             assert content == mock_remote_content
@@ -213,16 +213,15 @@ class TestLoader:
         loader.until_ts = int(past_time)  # 过期时间戳
 
         # Mock the get_local_file method to return our test content with current time
-        with patch.object(
-            loader, "get_local_file", return_value=(mock_local_content, datetime.now())
-        ):
+        with patch.object(loader, "get_local_file", return_value=(mock_local_content, datetime.now())):
             with pytest.raises(RuntimeError, match="EXEP is no longer valid"):
                 loader.get_file()
 
     def test_load_encrypted_env(self, loader, cipher, decrypted_ex, encrypted_ex):
         """Test loading encrypted env variables"""
-        with patch.object(loader, "get_file", return_value=encrypted_ex), patch.object(
-            loader, "load_env"
-        ) as mock_load_env:
+        with (
+            patch.object(loader, "get_file", return_value=encrypted_ex),
+            patch.object(loader, "load_env") as mock_load_env,
+        ):
             assert loader.load_encrypted_env()
             mock_load_env.assert_called_once_with(decrypted_ex)
