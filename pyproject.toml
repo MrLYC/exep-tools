@@ -3,7 +3,7 @@ name = "exep_tools"
 version = "0.0.9"
 description = "-"
 authors = []
-homepage = ""
+homepage = "https://pypi.org/project/exep_tools"
 packages = [{ include = "exep_tools" }]
 include = [
     "exep_tools/*.so",
