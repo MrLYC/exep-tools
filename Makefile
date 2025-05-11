@@ -20,7 +20,7 @@ test: ## Test the code with pytest
 
 .PHONY: build
 build: clean-build ## Build wheel file using poetry
-	@echo "🚀 Creating wheel file"
+	@echo "🚀 Creating wheel file: $(uname -a)"
 	@poetry build -f wheel
 
 .PHONY: clean-build
