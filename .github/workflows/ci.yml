@@ -43,19 +43,15 @@ jobs:
     needs: check
     strategy:
       matrix:
-        # 操作系统列表
-        os: [ubuntu-latest, macos-latest]
-
-        # 架构列表
-        arch: [x86_64, arm64, aarch64]
-
-        # 排除不兼容的组合 (根据实际情况调整)
-        exclude:
-          - os: macos-latest
+        include:
+          - os: ubuntu-latest
             arch: x86_64
+          - os: ubuntu-24.04-arm
+            arch: arm64
           - os: macos-latest
-            arch: aarch64
-    runs-on: ${{ matrix.os }}
+            arch: arm64
+          - os: macos-13
+            arch: Intel
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
