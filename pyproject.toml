@@ -11,11 +11,9 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
 click = "^8.1.8"
-cython = "^3.1.0"
 python-dotenv = "^1.1.0"
 pycryptodome = "^3.22.0"
 python-dateutil = "^2.9.0.post0"
-ast-grep-py = "^0.37.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.0"
@@ -24,7 +22,9 @@ pre-commit = "^3.4.0"
 tox = "^4.11.1"
 ipython = "^9.2.0"
 requests-mock = "^1.12.1"
+cython = "^3.1.0"
 pytest-cov = "^6.1.1"
+ast-grep-py = "^0.37.0"
 
 [[tool.poetry.source]]
 name = "tencent"
