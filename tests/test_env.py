@@ -133,24 +133,33 @@ class TestLoader:
         with pytest.raises(RuntimeError, match="File path does not match"):
             loader.get_remote_file()
 
-    def test_get_local_file(self, loader):
-        """Test getting a local file"""
-        mock_content = "local encrypted content"
-        mock_time = 1746858062  # 2025-05-10 in epoch time
+    def test_get_local_file(self, loader, tmp_path):
+        """Test getting a local file (真实文件，不用 mock)"""
 
-        with (
-            patch("os.path.exists", return_value=True),
-            patch("builtins.open", mock_open(read_data=mock_content)),
-            patch("os.path.getmtime", return_value=mock_time),
-        ):
+        # 切换到临时目录
+        old_cwd = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            # 生成本地文件
+            local_file = tmp_path / "test_local_file.txt"
+            mock_content = "local encrypted content"
+            with open(local_file, "w", encoding="utf-8") as f:
+                f.write(mock_content)
+            # 设置 loader 的 local_file 路径
+            loader.local_file = str(local_file)
+            # 修改文件时间戳为 2025-05-10
+            mock_time = 1746858062  # 2025-05-10 in epoch time
+            os.utime(local_file, (mock_time, mock_time))
+            # 调用真实方法
             content, date = loader.get_local_file()
-
             assert content == mock_content
             assert date == datetime.fromtimestamp(mock_time)
             # 更详细的日期检查
             assert date.day == 10
             assert date.month == 5
             assert date.year == 2025
+        finally:
+            os.chdir(old_cwd)
 
     def test_get_local_file_not_found(self, loader):
         """Test error when local file doesn't exist"""
