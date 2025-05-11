@@ -56,10 +56,22 @@ jobs:
         with:
           platforms: arm64
 
-      - name: Build and publish to pypi
-        uses: JRubics/poetry-publish@v2.1
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python_version: "3.11"
-          poetry_version: "==1.8.3"
-          pypi_token: ${{ secrets.PYPI_TOKEN }}
-          build_format: "wheel"
+          python-version: "3.11"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.3
+
+      - name: Install dependencies
+        run: |
+          poetry install
+
+      - name: Build and publish
+        run: |
+          make build-and-publish
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}

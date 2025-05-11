@@ -21,7 +21,7 @@ test: ## Test the code with pytest
 .PHONY: build
 build: clean-build ## Build wheel file using poetry
 	@echo "🚀 Creating wheel file"
-	@poetry build
+	@poetry build -f wheel
 
 .PHONY: clean-build
 clean-build: ## clean build artifacts
