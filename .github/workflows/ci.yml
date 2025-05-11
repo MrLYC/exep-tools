@@ -50,8 +50,6 @@ jobs:
             arch: arm64
           - os: macos-latest
             arch: arm64
-          - os: macos-13
-            arch: Intel
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
