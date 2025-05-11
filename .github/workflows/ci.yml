@@ -44,16 +44,13 @@ jobs:
     strategy:
       matrix:
         # 操作系统列表
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
 
         # 架构列表
         arch: [x86_64, arm64]
 
         # 排除不兼容的组合 (根据实际情况调整)
         exclude:
-          # Windows 仅支持 x86_64
-          - os: windows-latest
-            arch: arm64
           - os: macos-latest
             arch: x86_64
     runs-on: ${{ matrix.os }}
