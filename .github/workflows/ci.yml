@@ -43,18 +43,23 @@ jobs:
     needs: check
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        arch: [x64, arm64]
+        # 操作系统列表
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+        # 架构列表
+        arch: [x86_64, arm64]
+
+        # 排除不兼容的组合 (根据实际情况调整)
+        exclude:
+          # Windows 仅支持 x86_64
+          - os: windows-latest
+            arch: arm64
+          - os: macos-latest
+            arch: x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Set up QEMU (for cross-arch build)
-        if: matrix.arch == 'arm64' && matrix.os == 'ubuntu-latest'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
 
       - name: Set up Python
         uses: actions/setup-python@v4
