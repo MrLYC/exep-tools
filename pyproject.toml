@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "exep_tools"
-version = "0.0.5"
+version = "0.0.6"
 description = "-"
 authors = ["yakov <yakov@canway.net>"]
 homepage = "https://code.cwoa.net/rd-fy23-canway-aiops-rdc/exep-tools"

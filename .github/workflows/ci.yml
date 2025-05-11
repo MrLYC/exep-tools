@@ -47,12 +47,14 @@ jobs:
         os: [ubuntu-latest, macos-latest]
 
         # 架构列表
-        arch: [x86_64, arm64]
+        arch: [x86_64, arm64, aarch64]
 
         # 排除不兼容的组合 (根据实际情况调整)
         exclude:
           - os: macos-latest
             arch: x86_64
+          - os: macos-latest
+            arch: aarch64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
