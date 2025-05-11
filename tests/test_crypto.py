@@ -41,7 +41,7 @@ class TestCipher:
 
         # Test encrypt_base64/decrypt_base64
         encrypted_b64 = cipher.encrypt_base64(original_data)
-        decrypted = cipher.decrypt_base64(encrypted_b64)
+        decrypted = cipher.decrypt_base64(encrypted_b64.decode())
 
         assert decrypted == original_data
         assert encrypted_b64 != original_data  # Ensure encryption actually happened
