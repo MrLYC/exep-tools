@@ -29,7 +29,7 @@ class Loader:
     remote_file: str = ""
     local_file: str = ""
 
-    def __post_init__(self, magic: str):
+    def __post_init__(self, magic: str) -> None:
         cipher = self.cipher
         decrypted_magic = cipher.decrypt_base64(magic).decode()
         dumped_magic = json.loads(decrypted_magic)
@@ -53,10 +53,10 @@ class Loader:
             self.local_file = dumped_magic.get("local_file", ".ex")
 
     @cached_property
-    def cipher(self):
+    def cipher(self) -> Cipher:
         return Cipher(base64_key=codecs.decode(self.key, "rot13"), str_nonce=self.nonce)
 
-    def get_remote_file(self) -> (str, datetime):
+    def get_remote_file(self) -> tuple[str, datetime]:
         file_path = self.remote_file
         path = file_path.strip("/")
         response = requests.get(
@@ -80,7 +80,7 @@ class Loader:
 
         return response.text, dateutil_parser.parse(date)
 
-    def get_local_file(self) -> (str, datetime):
+    def get_local_file(self) -> tuple[str, datetime]:
         if not os.path.exists(self.local_file):
             raise FileNotFoundError(f"File not found: {self.local_file}")
 
@@ -97,8 +97,9 @@ class Loader:
             content, mtime = self.get_remote_file()
 
             if mtime < until_time:
+                # get_remote_file 返回的 content 是 str，需要编码为 bytes
                 with open(self.local_file, "wb") as f:
-                    f.write(content)
+                    f.write(content.encode("utf-8"))
 
         if mtime > until_time:
             raise RuntimeError(f"EXEP is no longer valid, last modified time: {mtime}, expired time: {until_time}")
@@ -123,5 +124,5 @@ class Loader:
 
         return True
 
-    def load_env(self, content: str):
+    def load_env(self, content: str) -> None:
         load_dotenv(stream=StringIO(content))

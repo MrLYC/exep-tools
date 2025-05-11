@@ -1,18 +1,28 @@
 import os
+from typing import TYPE_CHECKING
 
 from click import Command as BaseCommand
 
 from exep_tools.env import Loader
 
+if TYPE_CHECKING:
+    import click
+
 
 class ExepCommand(BaseCommand):
-    def __init__(self, loader_key: str = "", *args, **kwargs):
+    def __init__(self, loader_key: str = "", *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.loader_key = loader_key
         self.nonce = ""
 
-    def make_context(self, info_name: str, args: list, parent=None):
-        self.nonce = info_name
+    def make_context(
+        self,
+        info_name: str | None,
+        args: list[str],
+        parent=None,
+        **extra,
+    ) -> "click.Context":
+        self.nonce = info_name or ""
         exep = os.getenv("EXEP")
         if exep:
             Loader(
@@ -21,4 +31,4 @@ class ExepCommand(BaseCommand):
                 magic=exep,
             ).load_encrypted_env()
 
-        return super().make_context(info_name, args, parent)
+        return super().make_context(info_name, args, parent, **extra)

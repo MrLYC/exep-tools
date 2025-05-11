@@ -39,6 +39,6 @@ class Builder:
 
         return True
 
-    def build(self):
+    def build(self) -> None:
         self.inject_loader_key()
         main(["-i", self.root_dir])

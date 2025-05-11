@@ -1,5 +1,6 @@
 import base64
 from dataclasses import InitVar, dataclass
+from typing import Any
 
 from Crypto.Cipher import AES
 
@@ -15,7 +16,7 @@ class Cipher:
     key: bytes = b""
     nonce: bytes = b""
 
-    def __post_init__(self, str_key: str, str_nonce: str, base64_key: str, base64_nonce: str):
+    def __post_init__(self, str_key: str, str_nonce: str, base64_key: str, base64_nonce: str) -> None:
         if str_key:
             self.key = str_key.encode()
         elif base64_key:
@@ -27,12 +28,13 @@ class Cipher:
             self.nonce = base64.b64decode(base64_nonce)
 
     @property
-    def cipher(self):
+    def cipher(self) -> Any:
+        # mypy 无法识别 pycryptodome 的 AES 类型，使用 Any
         return AES.new(self.key, AES.MODE_CTR, nonce=self.nonce)
 
     def encrypt(self, data: bytes) -> bytes:
         """使用AES加密数据"""
-        return self.cipher.encrypt(data)
+        return self.cipher.encrypt(data)  # type: ignore[attr-defined]
 
     def encrypt_base64(self, data: bytes) -> bytes:
         """使用AES加密数据并返回base64编码"""
@@ -41,7 +43,7 @@ class Cipher:
 
     def decrypt(self, data: bytes) -> bytes:
         """使用AES解密数据"""
-        return self.cipher.decrypt(data)
+        return self.cipher.decrypt(data)  # type: ignore[attr-defined]
 
     def decrypt_base64(self, data: str) -> bytes:
         """使用AES解密base64编码的数据"""
