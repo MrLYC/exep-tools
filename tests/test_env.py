@@ -9,8 +9,8 @@ from io import StringIO
 
 import requests
 import requests_mock
-from devops_exep.env import Loader
-from devops_exep.crypto import Cipher
+from exep_tools.env import Loader
+from exep_tools.crypto import Cipher
 
 
 @pytest.fixture

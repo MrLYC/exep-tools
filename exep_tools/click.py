@@ -1,5 +1,5 @@
 from click import Command as BaseCommand
-from devops_exep.env import Loader
+from exep_tools.env import Loader
 import os
 
 

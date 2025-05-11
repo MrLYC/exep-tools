@@ -1,6 +1,6 @@
 import base64
 import pytest
-from devops_exep.crypto import Cipher
+from exep_tools.crypto import Cipher
 
 
 class TestCipher:

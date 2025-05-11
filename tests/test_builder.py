@@ -5,7 +5,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch
 
-from devops_exep.builder import Builder
+from exep_tools.builder import Builder
 
 
 @pytest.fixture
@@ -79,7 +79,7 @@ def entry_file(temp_dirs):
         f.write(
             """
 import click
-from devops_exep.click import ExepCommand
+from exep_tools.click import ExepCommand
 
 @click.group(cls=ExepCommand)
 def cli():
@@ -190,7 +190,7 @@ if __name__ == "__main__":
         assert result is False, "在没有找到钩子的情况下应当返回False"
 
 
-@patch("devops_exep.builder.main")
+@patch("exep_tools.builder.main")
 def test_build_with_mock(mock_main, temp_dirs, entry_file):
     """使用Mock测试构建方法，避免实际执行Cython编译"""
     temp_dir, _ = temp_dirs
@@ -230,7 +230,7 @@ def test_pattern_typo_fix():
         temp_file.write(
             """
 import click
-from devops_exep.click import ExepCommand
+from exep_tools.click import ExepCommand
 
 @click.group(cls=ExepCommand)
 def cli():

@@ -4,7 +4,7 @@ from urllib.parse import urljoin
 from dateutil import parser as dateutil_parser
 from datetime import datetime
 from io import StringIO
-from devops_exep.crypto import Cipher
+from exep_tools.crypto import Cipher
 import codecs
 import logging
 import os

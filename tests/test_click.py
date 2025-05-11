@@ -3,8 +3,8 @@ import pytest
 from unittest.mock import patch, MagicMock
 import click
 
-from devops_exep.click import ExepCommand
-from devops_exep.env import Loader
+from exep_tools.click import ExepCommand
+from exep_tools.env import Loader
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ class TestCommand:
     def test_make_context_without_exep(self, command):
         """Test make_context method when EXEP is not set"""
         with patch.dict(os.environ, {}, clear=True):
-            with patch("devops_exep.click.Loader") as mock_loader:
+            with patch("exep_tools.click.Loader") as mock_loader:
                 result = command.make_context("test-info", [])
                 assert command.nonce == "test-info"
                 # Loader should not be called
@@ -59,7 +59,7 @@ class TestCommand:
         with patch.dict(os.environ, {"EXEP": encrypted_magic}):
             mock_loader = MagicMock()
             with patch(
-                "devops_exep.click.Loader", return_value=mock_loader
+                "exep_tools.click.Loader", return_value=mock_loader
             ) as mock_loader_class:
                 result = command.make_context("test-info", [])
                 assert command.nonce == "test-info"
@@ -97,7 +97,7 @@ class TestCommand:
         mock_loader_instance.load_encrypted_env.return_value = True
 
         with patch.dict(os.environ, {"EXEP": encrypted_magic}):
-            with patch("devops_exep.click.Loader", return_value=mock_loader_instance):
+            with patch("exep_tools.click.Loader", return_value=mock_loader_instance):
                 command.make_context("test-info", [])
 
                 # 验证Loader被调用时的参数正确

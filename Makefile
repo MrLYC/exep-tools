@@ -17,7 +17,8 @@ check: ## Run code quality tools.
 .PHONY: test
 test: ## Test the code with pytest
 	@echo "🚀 Testing code: Running pytest"
-	poetry run pytest --cov devops_exep --doctest-modules --maxfail 1 --pdb
+	$(eval args ?= --pdb)
+	poetry run pytest --cov exep_tools --doctest-modules --maxfail 1 ${args}
 
 .PHONY: build
 build: clean-build ## Build wheel file using poetry
