@@ -1,5 +1,8 @@
 import click
+import base64
+import codecs
 from devops_exep.crypto import Cipher
+from Crypto.Random import get_random_bytes
 
 
 @click.group()
