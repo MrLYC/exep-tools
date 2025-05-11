@@ -1,7 +1,7 @@
 import os
 from typing import TYPE_CHECKING
 
-from click import Command as BaseCommand
+from click import Group as BaseGroup
 
 from exep_tools.env import Loader
 
@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     import click
 
 
-class ExepCommand(BaseCommand):
+class ExepGroup(BaseGroup):
     def __init__(self, loader_key: str = "", *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.loader_key = loader_key
