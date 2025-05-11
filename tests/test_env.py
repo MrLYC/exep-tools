@@ -3,7 +3,7 @@ import codecs
 import json
 import os
 from datetime import datetime, timedelta
-from unittest.mock import mock_open, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -190,28 +190,36 @@ class TestLoader:
             # Make sure we didn't call get_remote_file
             mock_get_remote.assert_not_called()
 
-    def test_get_file_uses_remote_if_local_missing(self, requests_mock, loader):
-        """Test that get_file uses remote file if local is missing"""
-        mock_remote_content = "remote content"
+    def test_get_file_uses_remote_if_local_missing(self, requests_mock, loader, tmp_path):
+        """Test that get_file uses remote file if local is missing (真实文件写入)"""
+        # 切换到临时目录
+        old_cwd = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            mock_remote_content = "remote content"
+            # 设置 loader 的 local_file 路径为临时目录下的文件
+            local_file = tmp_path / "test_remote_write.txt"
+            loader.local_file = str(local_file)
+            # 确保本地文件不存在
+            if local_file.exists():
+                local_file.unlink()
+            # mock get_remote_file 返回内容和时间
+            now = datetime.now()
 
-        # 修改 local_file 为不存在的文件
-        loader.local_file = "nonexistent.ex"
+            def fake_get_remote_file():
+                return mock_remote_content, now
 
-        # Mock get_local_file to raise FileNotFoundError
-        with (
-            patch.object(loader, "get_local_file", side_effect=FileNotFoundError),
-            patch.object(
-                loader,
-                "get_remote_file",
-                return_value=(mock_remote_content, datetime.now()),
-            ),
-            patch("builtins.open", mock_open()) as mock_file,
-        ):
+            loader.get_remote_file = fake_get_remote_file
+            # 调用 get_file，应该会写入本地文件
             content = loader.get_file()
-
             assert content == mock_remote_content
-            # Verify we attempted to write the remote content to local file
-            mock_file.assert_called_once_with("nonexistent.ex", "wb")
+            # 校验本地文件已被写入
+            assert local_file.exists()
+            with open(local_file, encoding="utf-8") as f:
+                file_content = f.read()
+            assert file_content == mock_remote_content
+        finally:
+            os.chdir(old_cwd)
 
     def test_get_file_expired(self, loader):
         """Test that get_file raises error if file is expired"""
