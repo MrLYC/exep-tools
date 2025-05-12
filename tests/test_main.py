@@ -102,7 +102,7 @@ def test_generate_ex(tmp_path):
     from exep_tools.crypto import Cipher
 
     cipher = Cipher(base64_key=key, str_nonce=nonce)
-    decrypted = cipher.decrypt_base64(output.read_bytes()).decode()
+    decrypted = cipher.decrypt_base64(output.read_bytes().decode()).decode()
     magic = json.loads(decrypted)
     assert magic["access_token"] == "tok"
     assert magic["base_url"] == "http://x/"
