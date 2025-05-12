@@ -83,28 +83,68 @@ def decrypt_ex(key: str, input_file: str, output: str, nonce: str) -> None:
     click.echo(f"Decrypted file saved to {output}")
 
 
+# Magic结构: access_token, base_url, until_ts, ref_name, remote_file, local_file, allow_commands, disallow_commands, environments
 @cli.command()
 @click.option("-k", "--key", prompt="Key", help="Key for decrypting .ex")
 @click.option("-n", "--nonce", prompt="Nonce", help="Nonce for AES encryption (optional)")
-@click.option("-o", "--output", prompt="Output file", help="Path to save the decrypted .ex file")
+@click.option("-o", "--output", prompt="Output file", help="Path to save the encrypted .ex file")
 @click.option("--access-token", prompt="Access token", help="GitLab access token")
 @click.option("--base-url", prompt="Base URL", help="GitLab base URL")
 @click.option("--until-ts", prompt="Until timestamp", type=int, help="Until timestamp")
 @click.option("--ref-name", prompt="Ref name", default="main", help="GitLab ref name")
+@click.option("--remote-file", default=".ex", help="Remote file name")
+@click.option("--local-file", default=".ex", help="Local file name")
+@click.option("--allow-command", multiple=True, help="Allowed command, can be used multiple times")
+@click.option(
+    "--disallow-command",
+    multiple=True,
+    help="Disallowed command, can be used multiple times",
+)
+@click.option(
+    "--environment",
+    multiple=True,
+    help="Environment variable in KEY=VALUE format, can be used multiple times",
+)
+@click.pass_context
 def generate_ex(
-    key: str,
-    nonce: str,
-    output: str,
-    access_token: str,
-    base_url: str,
-    until_ts: int,
-    ref_name: str,
-) -> None:
+    ctx,
+    key,
+    nonce,
+    output,
+    access_token,
+    base_url,
+    until_ts,
+    ref_name,
+    remote_file,
+    local_file,
+    allow_command,
+    disallow_command,
+    environment,
+):
+    """
+    生成加密后的 magic 文件
+    """
+    # 处理 allow/disallow_commands
+    allow_commands = list(allow_command) if allow_command else None
+    disallow_commands = list(disallow_command) if disallow_command else None
+    # 处理 environments
+    env_dict = None
+    if environment:
+        env_dict = {}
+        for item in environment:
+            if "=" in item:
+                k, v = item.split("=", 1)
+                env_dict[k] = v
     magic = Magic(
         access_token=access_token,
         base_url=base_url,
         until_ts=until_ts,
         ref_name=ref_name,
+        remote_file=remote_file,
+        local_file=local_file,
+        allow_commands=allow_commands,
+        disallow_commands=disallow_commands,
+        environments=env_dict,
     )
 
     cipher = Cipher(base64_key=key, str_nonce=nonce)
