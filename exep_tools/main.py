@@ -89,7 +89,7 @@ def decrypt_ex(key: str, input_file: str, output: str, nonce: str) -> None:
 @click.option("-o", "--output", prompt="Output file", help="Path to save the decrypted .ex file")
 @click.option("--access-token", prompt="Access token", help="GitLab access token")
 @click.option("--base-url", prompt="Base URL", help="GitLab base URL")
-@click.option("--until-ts", prompt="Until timestamp", help="Until timestamp")
+@click.option("--until-ts", prompt="Until timestamp", type=int, help="Until timestamp")
 @click.option("--ref-name", prompt="Ref name", default="main", help="GitLab ref name")
 def generate_ex(
     key: str,

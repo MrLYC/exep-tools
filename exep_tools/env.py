@@ -97,7 +97,7 @@ class Loader:
 
         with open(self.local_file) as f:
             content = f.read()
-        return content, datetime.fromtimestamp(os.path.getmtime(self.local_file))
+        return content, datetime.utcnow()
 
     def get_file(self) -> str:
         until_time = datetime.fromtimestamp(self.until_ts)
