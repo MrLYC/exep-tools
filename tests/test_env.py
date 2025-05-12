@@ -93,6 +93,71 @@ def magic_env(encrypted_magic):
 
 
 class TestLoader:
+    @pytest.mark.parametrize(
+        "allow,cmd,should_raise",
+        [(["a"], "b", True), (["a", "b"], "b", False), (None, "b", False)],
+    )
+    def test_check_magic_allow_commands(self, loader, allow, cmd, should_raise):
+        loader.loaded_magic.allow_commands = allow
+        loader.command = cmd
+        if should_raise:
+            with pytest.raises(RuntimeError, match="not allowed"):
+                loader.check_magic()
+        else:
+            loader.check_magic()
+
+    @pytest.mark.parametrize(
+        "disallow,cmd,should_raise",
+        [(["a"], "a", True), (["a"], "b", False), (None, "b", False)],
+    )
+    def test_check_magic_disallow_commands(self, loader, disallow, cmd, should_raise):
+        loader.loaded_magic.disallow_commands = disallow
+        loader.command = cmd
+        if should_raise:
+            with pytest.raises(RuntimeError, match="disallowed"):
+                loader.check_magic()
+        else:
+            loader.check_magic()
+
+    def test_check_magic_environments(self, loader, monkeypatch):
+        loader.loaded_magic.environments = {"FOO": "BAR"}
+        monkeypatch.setenv("FOO", "BAR")
+        loader.check_magic()  # 不抛异常
+        monkeypatch.setenv("FOO", "BAZ")
+        with pytest.raises(RuntimeError, match="does not match"):
+            loader.check_magic()
+
+    def test_load_encrypted_env_check_magic_fail(self, loader):
+        # check_magic 抛异常
+        with patch.object(loader, "check_magic", side_effect=RuntimeError("fail")):
+            with pytest.raises(RuntimeError, match="fail"):
+                loader.load_encrypted_env()
+
+    def test_load_encrypted_env_empty_content(self, loader):
+        # get_file 返回空内容
+        with patch.object(loader, "get_file", return_value=""):
+            assert loader.load_encrypted_env() is False
+
+    def test_load_encrypted_env_decrypt_fail(self, loader, encrypted_ex):
+        # 解密失败
+        with (
+            patch.object(loader, "get_file", return_value=encrypted_ex),
+            patch.object(loader, "cipher") as mock_cipher,
+        ):
+            mock_cipher.decrypt_base64.side_effect = Exception("decrypt error")
+            with pytest.raises(Exception, match="decrypt error"):
+                loader.load_encrypted_env()
+
+    def test_load_env_sets_env(self, loader, monkeypatch):
+        # load_env 能正确设置环境变量
+        content = "FOO=BAR\nBAR=BAZ"
+        for k in ["FOO", "BAR"]:
+            if k in os.environ:
+                monkeypatch.delenv(k, raising=False)
+        loader.load_env(content)
+        assert os.environ["FOO"] == "BAR"
+        assert os.environ["BAR"] == "BAZ"
+
     def test_init(self, loader):
         """Test Loader initialization with magic string"""
         # 因为我们使用的是 fixture 创建的 loader 实例，所以不需要再创建一个新的

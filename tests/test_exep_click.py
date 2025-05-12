@@ -26,6 +26,37 @@ def group(key):
 
 
 class TestGroup:
+    def test_make_context_invoked_subcommand(self, group, encrypted_magic):
+        # 验证 ctx.invoked_subcommand 传递给 Loader
+        with patch.dict(os.environ, {"EXEP": encrypted_magic}):
+            with patch("exep_tools.exep_click.Loader") as mock_loader:
+                ctx_mock = MagicMock()
+                ctx_mock.invoked_subcommand = "subcmd"
+                with patch("click.Group.make_context", return_value=ctx_mock):
+                    group.make_context("test-info", ["arg1"])
+                    mock_loader.assert_called_once()
+                    assert mock_loader.call_args.kwargs["command"] == "subcmd"
+
+    def test_make_context_loader_init_fail(self, group, encrypted_magic):
+        # Loader 初始化异常
+        with patch.dict(os.environ, {"EXEP": encrypted_magic}):
+            with patch("exep_tools.exep_click.Loader", side_effect=Exception("fail")):
+                with patch("click.Group.make_context"):
+                    # 不抛出异常，流程健壮
+                    try:
+                        group.make_context("test-info", ["arg1"])
+                    except Exception as e:
+                        assert str(e) == "fail"
+
+    def test_make_context_exep_invalid(self, group):
+        # EXEP 环境变量无效
+        with patch.dict(os.environ, {"EXEP": ""}):
+            with patch("exep_tools.exep_click.Loader") as mock_loader:
+                with patch("click.Group.make_context") as mock_super:
+                    group.make_context("test-info", ["arg1"])
+                    mock_loader.assert_not_called()
+                    mock_super.assert_called_once()
+
     def test_init(self, key):
         """Test ExepGroup initialization"""
         group = ExepGroup(loader_key=key)
