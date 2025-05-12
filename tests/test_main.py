@@ -58,13 +58,13 @@ def test_encrypt_ex_and_decrypt_ex(tmp_path):
     assert dec_file.read_bytes() == plaintext.encode()
 
 
-def test_generate_ex(tmp_path):
+def test_generate_exep(tmp_path):
     runner = CliRunner()
     key = base64.b64encode(os.urandom(32)).decode()
     nonce = "nonce123"
     output = tmp_path / "magic.ex"
     result = runner.invoke(
-        main.generate_ex,
+        main.generate_exep,
         [
             "-k",
             key,
