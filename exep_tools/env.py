@@ -110,7 +110,7 @@ class Loader:
             if mtime < until_time:
                 # get_remote_file 返回的 content 是 str，需要编码为 bytes
                 with open(self.local_file, "wb") as f:
-                    f.write(content.encode("utf-8"))
+                    f.write(content.encode())
 
         if mtime > until_time:
             raise RuntimeError(f"EXEP is no longer valid, last modified time: {mtime}, expired time: {until_time}")
