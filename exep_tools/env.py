@@ -2,7 +2,7 @@ import codecs
 import json
 import logging
 import os
-from dataclasses import InitVar, dataclass
+from dataclasses import InitVar, dataclass, field
 from datetime import datetime
 from functools import cached_property
 from io import StringIO
@@ -25,58 +25,40 @@ class Magic:
     ref_name: str = "main"
     remote_file: str = ".ex"
     local_file: str = ".ex"
+    allow_commands: list[str] | None = None
+    disallow_commands: list[str] | None = None
+    environments: dict[str, str] | None = None
 
 
 @dataclass
 class Loader:
     key: str
-    nonce: str
+    name: str
     magic: InitVar[str]
-    access_token: str = ""
-    base_url: str = ""
-    ref_name: str = ""
-    until_ts: int = 0
-    remote_file: str = ""
-    local_file: str = ""
+    command: str
+    loaded_magic: Magic = field(init=False)
 
     def __post_init__(self, magic: str) -> None:
         cipher = self.cipher
         decrypted_magic = cipher.decrypt_base64(magic).decode()
         dumped_magic = json.loads(decrypted_magic)
-        magic_obj = Magic(**dumped_magic)
-
-        if not self.access_token:
-            self.access_token = magic_obj.access_token
-
-        if not self.base_url:
-            self.base_url = magic_obj.base_url
-
-        if not self.ref_name:
-            self.ref_name = magic_obj.ref_name
-
-        if not self.until_ts:
-            self.until_ts = magic_obj.until_ts
-
-        if not self.remote_file:
-            self.remote_file = magic_obj.remote_file
-
-        if not self.local_file:
-            self.local_file = magic_obj.local_file
+        self.loaded_magic = Magic(**dumped_magic)
 
     @cached_property
     def cipher(self) -> Cipher:
-        return Cipher(base64_key=codecs.decode(self.key, "rot13"), str_nonce=self.nonce)
+        return Cipher(base64_key=codecs.decode(self.key, "rot13"), str_nonce=self.name)
 
     def get_remote_file(self) -> tuple[str, datetime]:
-        file_path = self.remote_file
+        loaded_magic = self.loaded_magic
+        file_path = loaded_magic.remote_file
         path = file_path.strip("/")
         response = requests.get(
             urljoin(
-                self.base_url,
+                loaded_magic.base_url,
                 f"repository/files/{path.replace('/', '%2F')}/raw",
             ),
-            headers={"PRIVATE-TOKEN": self.access_token},
-            params={"ref": self.ref_name},
+            headers={"PRIVATE-TOKEN": loaded_magic.access_token},
+            params={"ref": loaded_magic.ref_name},
             timeout=60,
         )
         response.raise_for_status()
@@ -92,15 +74,17 @@ class Loader:
         return response.text, dateutil_parser.parse(date)
 
     def get_local_file(self) -> tuple[str, datetime]:
-        if not os.path.exists(self.local_file):
-            raise FileNotFoundError(f"File not found: {self.local_file}")
+        loaded_magic = self.loaded_magic
+        if not os.path.exists(loaded_magic.local_file):
+            raise FileNotFoundError(f"File not found: {loaded_magic.local_file}")
 
-        with open(self.local_file) as f:
+        with open(loaded_magic.local_file) as f:
             content = f.read()
         return content, datetime.utcnow()
 
     def get_file(self) -> str:
-        until_time = datetime.fromtimestamp(self.until_ts)
+        loaded_magic = self.loaded_magic
+        until_time = datetime.fromtimestamp(loaded_magic.until_ts)
 
         try:
             content, mtime = self.get_local_file()
@@ -109,7 +93,7 @@ class Loader:
 
             if mtime < until_time:
                 # get_remote_file 返回的 content 是 str，需要编码为 bytes
-                with open(self.local_file, "wb") as f:
+                with open(loaded_magic.local_file, "wb") as f:
                     f.write(content.encode())
 
         if mtime > until_time:
@@ -117,7 +101,24 @@ class Loader:
 
         return content
 
+    def check_magic(self):
+        loaded_magic = self.loaded_magic
+
+        if loaded_magic.allow_commands is not None and self.command not in loaded_magic.allow_commands:
+            raise RuntimeError(f"Command {self.command} is not allowed")
+
+        if loaded_magic.disallow_commands is not None and self.command in loaded_magic.disallow_commands:
+            raise RuntimeError(f"Command {self.command} is disallowed")
+
+        if loaded_magic.environments is not None:
+            for key, value in loaded_magic.environments.items():
+                env = os.getenv(key)
+                if env != value:
+                    raise RuntimeError(f"Environment variable {key} does not match, expected: {value}, got: {env}")
+
     def load_encrypted_env(self) -> bool:
+        self.check_magic()
+
         cipher = self.cipher
         content = self.get_file()
 

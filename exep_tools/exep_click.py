@@ -13,7 +13,6 @@ class ExepGroup(BaseGroup):
     def __init__(self, loader_key: str = "", *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.loader_key = loader_key
-        self.nonce = ""
 
     def make_context(
         self,
@@ -22,13 +21,17 @@ class ExepGroup(BaseGroup):
         parent=None,
         **extra,
     ) -> "click.Context":
-        self.nonce = info_name or ""
+        ctx = super().make_context(info_name, args, parent, **extra)
+
         exep = os.getenv("EXEP")
         if exep:
-            Loader(
+            loader = Loader(
                 key=self.loader_key,
-                nonce=self.nonce,
+                name=info_name,
+                command=ctx.invoked_subcommand,
                 magic=exep,
-            ).load_encrypted_env()
+            )
 
-        return super().make_context(info_name, args, parent, **extra)
+            loader.load_encrypted_env()
+
+        return ctx

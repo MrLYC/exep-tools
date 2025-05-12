@@ -32,6 +32,7 @@ pycryptodome = "^3.22.0"
 python-dateutil = "^2.9.0.post0"
 ast-grep-py = "^0.37.0"
 cython = "^3.1.0"
+requests = "^2.32.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.0"

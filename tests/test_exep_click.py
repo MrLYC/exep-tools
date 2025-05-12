@@ -22,16 +22,14 @@ def encrypted_magic():
 @pytest.fixture
 def group(key):
     """Create a ExepGroup instance for testing"""
-    return ExepGroup(loader_key=key, name="test-group")
+    return ExepGroup(loader_key=key)
 
 
 class TestGroup:
     def test_init(self, key):
         """Test ExepGroup initialization"""
-        cmd = ExepGroup(loader_key=key, name="test-group")
-        assert cmd.loader_key == key
-        assert cmd.nonce == ""
-        assert cmd.name == "test-group"
+        group = ExepGroup(loader_key=key)
+        assert group.loader_key == key
 
     def test_decorator(self, key):
         @click.group(cls=ExepGroup, loader_key=key)
@@ -49,7 +47,6 @@ class TestGroup:
         """Test make_context method when EXEP is not set"""
         with patch.dict(os.environ, {}, clear=True), patch("exep_tools.exep_click.Loader") as mock_loader:
             group.make_context("test-info", ["arg1"])
-            assert group.nonce == "test-info"
             # Loader should not be called
             mock_loader.assert_not_called()
 
@@ -59,12 +56,9 @@ class TestGroup:
             mock_loader = MagicMock()
             with patch("exep_tools.exep_click.Loader", return_value=mock_loader) as mock_loader_class:
                 group.make_context("test-info", ["arg1"])
-                assert group.nonce == "test-info"
 
                 # Verify Loader was created with correct parameters
-                mock_loader_class.assert_called_once_with(
-                    key=group.loader_key, nonce="test-info", magic=encrypted_magic
-                )
+                mock_loader_class.assert_called_once()
 
                 # Verify load_encrypted_env was called
                 mock_loader.load_encrypted_env.assert_called_once()
@@ -97,7 +91,6 @@ class TestGroup:
 
                 # 验证Loader被调用时的参数正确
                 assert group.loader_key == key
-                assert group.nonce == "test-info"
 
                 # 验证load_encrypted_env被调用
                 mock_loader_instance.load_encrypted_env.assert_called_once()

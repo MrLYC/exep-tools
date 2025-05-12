@@ -18,8 +18,8 @@ def key():
 
 
 @pytest.fixture
-def nonce():
-    """Create a sample nonce"""
+def name():
+    """Create a sample name"""
     return "yakov"
 
 
@@ -40,29 +40,36 @@ def magic():
         "until_ts": int((datetime.now() + timedelta(days=1)).timestamp()),
         "remote_file": "test-remote.ex",
         "local_file": "test-local.ex",
+        "allow_commands": None,
     }
 
 
 @pytest.fixture
-def encrypted_magic(magic, key, nonce):
+def encrypted_magic(magic, key, name):
     """Create a sample encrypted magic string"""
     # Encrypt the magic string using the Cipher
-    cipher = Cipher(str_key=key, str_nonce=nonce)
+    cipher = Cipher(str_key=key, str_nonce=name)
     dumped_magic = json.dumps(magic).encode()
     encrypted_magic = cipher.encrypt_base64(dumped_magic).decode()
     return encrypted_magic
 
 
 @pytest.fixture
-def cipher(key, nonce):
+def cipher(key, name):
     """Create a sample Cipher instance"""
-    return Cipher(str_key=key, str_nonce=nonce)
+    return Cipher(str_key=key, str_nonce=name)
 
 
 @pytest.fixture
-def loader(loader_key, nonce, encrypted_magic, cipher):
+def command():
+    """Create a sample command"""
+    return "test_command"
+
+
+@pytest.fixture
+def loader(loader_key, name, encrypted_magic, cipher, command):
     """Create a sample Loader instance"""
-    return Loader(key=loader_key, nonce=nonce, magic=encrypted_magic)
+    return Loader(key=loader_key, name=name, command=command, magic=encrypted_magic)
 
 
 @pytest.fixture
@@ -92,12 +99,13 @@ class TestLoader:
         # 可以直接断言 loader 实例的属性是否正确初始化
 
         # Assert that the Loader correctly initializes from the magic string
-        assert loader.access_token == "fake_token"
-        assert loader.base_url == "https://fake-gitlab.com/api/v4/projects/123/"
-        assert loader.ref_name == "main"
-        assert loader.remote_file == "test-remote.ex"
-        assert loader.local_file == "test-local.ex"
-        assert isinstance(loader.until_ts, int)  # 检查时间戳是否正确初始化为整数
+        loaded_magic = loader.loaded_magic
+        assert loaded_magic.access_token == "fake_token"
+        assert loaded_magic.base_url == "https://fake-gitlab.com/api/v4/projects/123/"
+        assert loaded_magic.ref_name == "main"
+        assert loaded_magic.remote_file == "test-remote.ex"
+        assert loaded_magic.local_file == "test-local.ex"
+        assert isinstance(loaded_magic.until_ts, int)  # 检查时间戳是否正确初始化为整数
 
     def test_get_remote_file(self, requests_mock, loader):
         """Test getting a remote file"""
@@ -147,7 +155,7 @@ class TestLoader:
             with open(local_file, "w", encoding="utf-8") as f:
                 f.write(mock_content)
             # 设置 loader 的 local_file 路径
-            loader.local_file = str(local_file)
+            loader.loaded_magic.local_file = str(local_file)
             # 调用真实方法
             content, date = loader.get_local_file()
             assert content == mock_content
@@ -191,9 +199,9 @@ class TestLoader:
         os.chdir(tmp_path)
         try:
             mock_remote_content = "remote content"
-            # 设置 loader 的 local_file 路径为临时目录下的文件
+            # 设置 loader 的 loaded_magic.local_file 路径为临时目录下的文件
             local_file = tmp_path / "test_remote_write.txt"
-            loader.local_file = str(local_file)
+            loader.loaded_magic.local_file = str(local_file)
             # 确保本地文件不存在
             if local_file.exists():
                 local_file.unlink()
@@ -215,18 +223,30 @@ class TestLoader:
         finally:
             os.chdir(old_cwd)
 
-    def test_get_file_expired(self, loader):
-        """Test that get_file raises error if file is expired"""
-        mock_local_content = "local content"
-        past_time = (datetime.now() - timedelta(days=1)).timestamp()
-
-        # 设置过期时间
-        loader.until_ts = int(past_time)  # 过期时间戳
-
-        # Mock the get_local_file method to return our test content with current time
-        with patch.object(loader, "get_local_file", return_value=(mock_local_content, datetime.now())):
+    def test_get_file_expired(self, loader, tmp_path):
+        """Test that get_file raises error if file is expired (真实文件)"""
+        # 切换到临时目录
+        old_cwd = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            mock_local_content = "local content"
+            # 生成本地文件
+            local_file = tmp_path / "test_expired.txt"
+            with open(local_file, "w", encoding="utf-8") as f:
+                f.write(mock_local_content)
+            # 设置 loader 的 loaded_magic.local_file 路径
+            loader.loaded_magic.local_file = str(local_file)
+            # 设置过期时间为昨天
+            past_time = (datetime.now() - timedelta(days=1)).timestamp()
+            loader.loaded_magic.until_ts = int(past_time)
+            # 修改文件时间戳为当前时间
+            now = datetime.now().timestamp()
+            os.utime(local_file, (now, now))
+            # 调用 get_file，应该抛出过期异常
             with pytest.raises(RuntimeError, match="EXEP is no longer valid"):
                 loader.get_file()
+        finally:
+            os.chdir(old_cwd)
 
     def test_load_encrypted_env(self, loader, cipher, decrypted_ex, encrypted_ex):
         """Test loading encrypted env variables"""
