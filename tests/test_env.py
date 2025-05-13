@@ -2,7 +2,7 @@ import base64
 import codecs
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -37,7 +37,7 @@ def magic():
         "access_token": "fake_token",
         "base_url": "https://fake-gitlab.com/api/v4/projects/123/",
         "ref_name": "main",
-        "until_ts": int((datetime.now() + timedelta(days=1)).timestamp()),
+        "until_ts": int((datetime.now(UTC) + timedelta(days=1)).timestamp()),
         "remote_file": "test-remote.ex",
         "local_file": "test-local.ex",
         "allow_commands": None,
@@ -175,31 +175,31 @@ class TestLoader:
     def test_get_remote_file(self, requests_mock, loader):
         """Test getting a remote file"""
         # Mock the GitLab API response
+        now = datetime.now(UTC)
         requests_mock.get(
             "https://fake-gitlab.com/api/v4/projects/123/repository/files/test-remote.ex/raw?ref=main",
             text="encrypted_content",
             headers={
                 "X-Gitlab-File-Path": "test-remote.ex",
-                "Date": "Mon, 10 May 2025 12:00:00 GMT",
-            },
+                "Date": f"{now.isoformat()}",
+            },  # Mock the Date header
         )
 
-        content, date = loader.get_remote_file()
+        content, time = loader.get_remote_file()
 
         assert content == "encrypted_content"
-        assert date.day == 10
-        assert date.month == 5
-        assert date.year == 2025
+        assert time == int(now.timestamp())
 
     def test_get_remote_file_path_mismatch(self, requests_mock, loader):
         """Test error when file path doesn't match"""
+        now = datetime.now(UTC)
         # Mock the GitLab API response with wrong path
         requests_mock.get(
             "https://fake-gitlab.com/api/v4/projects/123/repository/files/test-remote.ex/raw?ref=main",
             text="encrypted_content",
             headers={
                 "X-Gitlab-File-Path": "wrong-path.ex",
-                "Date": "Mon, 10 May 2025 12:00:00 GMT",
+                "Date": f"{now.isoformat()}",
             },
         )
 
@@ -212,7 +212,7 @@ class TestLoader:
         # 切换到临时目录
         old_cwd = os.getcwd()
         os.chdir(tmp_path)
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         try:
             # 生成本地文件
             local_file = tmp_path / "test_local_file.txt"
@@ -222,9 +222,9 @@ class TestLoader:
             # 设置 loader 的 local_file 路径
             loader.loaded_magic.local_file = str(local_file)
             # 调用真实方法
-            content, date = loader.get_local_file()
+            content, time = loader.get_local_file()
             assert content == mock_content
-            assert date > now
+            assert time >= int(now.timestamp())
         finally:
             os.chdir(old_cwd)
 
@@ -240,14 +240,14 @@ class TestLoader:
     def test_get_file_uses_local_if_exists(self, loader):
         """Test that get_file uses local file if it exists and isn't expired"""
         mock_local_content = "local content"
-        mock_time = datetime.now().timestamp()
+        mock_time = datetime.now(UTC).timestamp()
 
         # Mock the get_local_file method to return our test content
         with (
             patch.object(
                 loader,
                 "get_local_file",
-                return_value=(mock_local_content, datetime.fromtimestamp(mock_time)),
+                return_value=(mock_local_content, int(mock_time)),
             ),
             patch.object(loader, "get_remote_file") as mock_get_remote,
         ):
@@ -271,10 +271,10 @@ class TestLoader:
             if local_file.exists():
                 local_file.unlink()
             # mock get_remote_file 返回内容和时间
-            now = datetime.now()
+            now = datetime.now(UTC)
 
             def fake_get_remote_file():
-                return mock_remote_content, now
+                return mock_remote_content, int(now.timestamp())
 
             loader.get_remote_file = fake_get_remote_file
             # 调用 get_file，应该会写入本地文件
@@ -302,10 +302,10 @@ class TestLoader:
             # 设置 loader 的 loaded_magic.local_file 路径
             loader.loaded_magic.local_file = str(local_file)
             # 设置过期时间为昨天
-            past_time = (datetime.now() - timedelta(days=1)).timestamp()
+            past_time = (datetime.now(UTC) - timedelta(days=1)).timestamp()
             loader.loaded_magic.until_ts = int(past_time)
             # 修改文件时间戳为当前时间
-            now = datetime.now().timestamp()
+            now = datetime.now(UTC).timestamp()
             os.utime(local_file, (now, now))
             # 调用 get_file，应该抛出过期异常
             with pytest.raises(RuntimeError, match="EXEP is no longer valid"):

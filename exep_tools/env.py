@@ -3,7 +3,7 @@ import json
 import logging
 import os
 from dataclasses import InitVar, dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from functools import cached_property
 from io import StringIO
 from urllib.parse import urljoin
@@ -48,7 +48,7 @@ class Loader:
     def cipher(self) -> Cipher:
         return Cipher(base64_key=codecs.decode(self.key, "rot13"), str_nonce=self.name)
 
-    def get_remote_file(self) -> tuple[str, datetime]:
+    def get_remote_file(self) -> tuple[str, int]:
         loaded_magic = self.loaded_magic
         file_path = loaded_magic.remote_file
         path = file_path.strip("/")
@@ -69,35 +69,37 @@ class Loader:
 
         date = response.headers.get("Date")
         if not date:
-            return response.text, datetime.utcnow()
+            return response.text, int(datetime.now(UTC).timestamp())
 
-        return response.text, dateutil_parser.parse(date)
+        return response.text, int(dateutil_parser.parse(date).timestamp())
 
-    def get_local_file(self) -> tuple[str, datetime]:
+    def get_local_file(self) -> tuple[str, int]:
         loaded_magic = self.loaded_magic
         if not os.path.exists(loaded_magic.local_file):
             raise FileNotFoundError(f"File not found: {loaded_magic.local_file}")
 
         with open(loaded_magic.local_file) as f:
             content = f.read()
-        return content, datetime.utcnow()
+        return content, int(datetime.now(UTC).timestamp())
 
     def get_file(self) -> str:
         loaded_magic = self.loaded_magic
-        until_time = datetime.fromtimestamp(loaded_magic.until_ts)
+        until_time = loaded_magic.until_ts
 
         try:
-            content, mtime = self.get_local_file()
+            content, ftime = self.get_local_file()
+            need_update = False
         except FileNotFoundError:
-            content, mtime = self.get_remote_file()
+            content, ftime = self.get_remote_file()
+            need_update = True
 
-            if mtime < until_time:
-                # get_remote_file 返回的 content 是 str，需要编码为 bytes
-                with open(loaded_magic.local_file, "wb") as f:
-                    f.write(content.encode())
+        if ftime > until_time:
+            raise RuntimeError(f"EXEP is no longer valid, last modified time: {ftime}, expired time: {until_time}")
 
-        if mtime > until_time:
-            raise RuntimeError(f"EXEP is no longer valid, last modified time: {mtime}, expired time: {until_time}")
+        elif need_update:
+            # get_remote_file 返回的 content 是 str，需要编码为 bytes
+            with open(loaded_magic.local_file, "wb") as f:
+                f.write(content.encode())
 
         return content
 
