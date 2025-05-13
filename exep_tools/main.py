@@ -155,8 +155,8 @@ def decrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
     envvar="EXEP_REF_NAME",
     help="GitLab ref name",
 )
-@click.option("--remote-file", default=".exep", envvar="EXEP_REMOTE_FILE", help="Remote file name")
-@click.option("--local-file", default=".exep", envvar="EXEP_LOCAL_FILE", help="Local file name")
+@click.option("--remote-file", default=".ex", envvar="EXEP_REMOTE_FILE", help="Remote file name")
+@click.option("--local-file", default=".ex", envvar="EXEP_LOCAL_FILE", help="Local file name")
 @click.option(
     "--allow-command",
     multiple=True,
