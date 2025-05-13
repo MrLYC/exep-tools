@@ -1,15 +1,16 @@
 import base64
 import json
 import os
+from datetime import datetime
 
 from click.testing import CliRunner
 
 from exep_tools import main
 
 
-def test_generate_ex_key():
+def test_generate_key():
     runner = CliRunner()
-    result = runner.invoke(main.generate_ex_key, ["--length", "16"])
+    result = runner.invoke(main.generate_key, ["--length", "16"])
     assert result.exit_code == 0
     assert "Generated key:" in result.output
     assert "Key for build:" in result.output
@@ -32,7 +33,7 @@ def test_encrypt_and_decrypt_data():
     assert "Decrypting data: hello world" in result2.output
 
 
-def test_encrypt_ex_and_decrypt_ex(tmp_path):
+def test_encrypt_file_and_decrypt_file(tmp_path):
     runner = CliRunner()
     key = base64.b64encode(os.urandom(32)).decode()
     nonce = "nonce123"
@@ -41,16 +42,16 @@ def test_encrypt_ex_and_decrypt_ex(tmp_path):
     enc_file = tmp_path / "enc.ex"
     dec_file = tmp_path / "dec.ex"
     input_file.write_text(plaintext, encoding="utf-8")
-    # encrypt_ex
+    # encrypt_file
     result = runner.invoke(
-        main.encrypt_ex,
+        main.encrypt_file,
         ["-k", key, "-i", str(input_file), "-o", str(enc_file), "-n", nonce],
     )
     assert result.exit_code == 0
     assert enc_file.exists()
-    # decrypt_ex
+    # decrypt_file
     result2 = runner.invoke(
-        main.decrypt_ex,
+        main.decrypt_file,
         ["-k", key, "-i", str(enc_file), "-o", str(dec_file), "-n", nonce],
     )
     assert result2.exit_code == 0
@@ -76,8 +77,8 @@ def test_generate_exep(tmp_path):
             "tok",
             "--base-url",
             "http://x/",
-            "--until-ts",
-            "1234567890",
+            "--expire-days",
+            "1",
             "--ref-name",
             "main",
             "--remote-file",
@@ -106,7 +107,7 @@ def test_generate_exep(tmp_path):
     magic = json.loads(decrypted)
     assert magic["access_token"] == "tok"
     assert magic["base_url"] == "http://x/"
-    assert magic["until_ts"] == 1234567890
+    assert magic["until_ts"] > datetime.now().timestamp()
     assert magic["ref_name"] == "main"
     assert magic["remote_file"] == "foo.ex"
     assert magic["local_file"] == "bar.ex"

@@ -99,12 +99,12 @@ if __name__ == "__main__":
     return entry_file_path
 
 
-def test_build(temp_dirs, test_files):
+def test_build(temp_dirs, test_files, entry_file):
     """测试Cython构建过程"""
     # 注意: 这个测试可能会很慢，因为实际上要进行Cython编译
     temp_dir, target_dir = temp_dirs
 
-    builder = Builder(root_dir=temp_dir)
+    builder = Builder(root_dir=temp_dir, entry_file=entry_file)
     builder.build()
 
     # 检查输出目录中是否有编译后的文件

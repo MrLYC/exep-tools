@@ -2,6 +2,7 @@ import base64
 import codecs
 import json
 from dataclasses import asdict
+from datetime import datetime, timedelta
 
 import click
 from Crypto.Random import get_random_bytes
@@ -18,10 +19,9 @@ def cli(ctx: click.Context) -> None:
 
 @cli.command()
 @click.option("--length", default=32, help="Length of the generated key")
-def generate_ex_key(length: int) -> None:
+def generate_key(length: int) -> None:
     """
     生成指定长度的 base64 加密密钥，并输出。
-    用于 .ex 文件的加密。
     """
     key_bytes = get_random_bytes(length)
     key = base64.b64encode(key_bytes).decode()
@@ -31,7 +31,7 @@ def generate_ex_key(length: int) -> None:
 
 
 @cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for encrypting .ex")
+@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for encrypting")
 @click.option("-d", "--data", prompt="Data", help="Data to encrypt")
 @click.option(
     "-n",
@@ -50,7 +50,7 @@ def encrypt_data(key: str, data: str, nonce: str) -> None:
 
 
 @cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting .ex")
+@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
 @click.option("-d", "--data", prompt="Data", help="Data to decrypt")
 @click.option(
     "-n",
@@ -69,9 +69,9 @@ def decrypt_data(key: str, data: str, nonce: str) -> None:
 
 
 @cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting .ex")
-@click.option("-i", "--input-file", prompt="Input file", help="Path to the encrypted .ex file")
-@click.option("-o", "--output", prompt="Output file", help="Path to save the decrypted .ex file")
+@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
+@click.option("-i", "--input-file", prompt="Input file", help="Path to the encrypted file")
+@click.option("-o", "--output", prompt="Output file", help="Path to save the decrypted file")
 @click.option(
     "-n",
     "--nonce",
@@ -79,7 +79,7 @@ def decrypt_data(key: str, data: str, nonce: str) -> None:
     envvar="EXLN",
     help="Nonce for AES encryption (optional)",
 )
-def encrypt_ex(key: str, input_file: str, output: str, nonce: str) -> None:
+def encrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
     """
     使用指定密钥和 nonce 对输入文件内容进行加密，结果保存为 base64 编码的密文文件。
     """
@@ -96,9 +96,9 @@ def encrypt_ex(key: str, input_file: str, output: str, nonce: str) -> None:
 
 
 @cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting .ex")
-@click.option("-i", "--input-file", prompt="Input file", help="Path to the encrypted .ex file")
-@click.option("-o", "--output", prompt="Output file", help="Path to save the decrypted .ex file")
+@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
+@click.option("-i", "--input-file", prompt="Input file", help="Path to the encrypted file")
+@click.option("-o", "--output", prompt="Output file", help="Path to save the decrypted file")
 @click.option(
     "-n",
     "--nonce",
@@ -106,9 +106,9 @@ def encrypt_ex(key: str, input_file: str, output: str, nonce: str) -> None:
     envvar="EXLN",
     help="Nonce for AES encryption (optional)",
 )
-def decrypt_ex(key: str, input_file: str, output: str, nonce: str) -> None:
+def decrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
     """
-    使用指定密钥和 nonce 对加密的 .ex 文件进行解密，输出为明文文件。
+    使用指定密钥和 nonce 对加密的文件进行解密，输出为明文文件。
     """
     with open(input_file, "rb") as f:
         encrypted = f.read()
@@ -125,38 +125,38 @@ def decrypt_ex(key: str, input_file: str, output: str, nonce: str) -> None:
 
 # Magic结构: access_token, base_url, until_ts, ref_name, remote_file, local_file, allow_commands, disallow_commands, environments
 @cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting .ex")
+@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
 @click.option(
     "-n",
-    "--nonce",
-    prompt="Nonce",
+    "--name",
+    prompt="Name",
     envvar="EXLN",
-    help="Nonce for AES encryption (optional)",
+    help="Name for the entry",
 )
 @click.option("-o", "--output", prompt="Output file", help="Path to save the encrypted .exep file")
 @click.option(
     "--access-token",
     prompt="Access token",
-    envvar="GITLAB_TOKEN",
+    envvar="EXEP_GITLAB_TOKEN",
     help="GitLab access token",
 )
-@click.option("--base-url", prompt="Base URL", envvar="GITLAB_URL", help="GitLab base URL")
+@click.option("--base-url", prompt="Base URL", envvar="EXEP_GITLAB_URL", help="GitLab base URL")
 @click.option(
-    "--until-ts",
-    prompt="Until timestamp",
+    "--expire-days",
+    prompt="Expire days",
     type=int,
-    envvar="UNTIL_TS",
-    help="Until timestamp",
+    envvar="EXEP_filePIRE_DAYS",
+    help="Number of days until expiration",
 )
 @click.option(
     "--ref-name",
     prompt="Ref name",
     default="main",
-    envvar="REF_NAME",
+    envvar="EXEP_REF_NAME",
     help="GitLab ref name",
 )
-@click.option("--remote-file", default=".exep", envvar="REMOTE_FILE", help="Remote file name")
-@click.option("--local-file", default=".exep", envvar="LOCAL_FILE", help="Local file name")
+@click.option("--remote-file", default=".exep", envvar="EXEP_REMOTE_FILE", help="Remote file name")
+@click.option("--local-file", default=".exep", envvar="EXEP_LOCAL_FILE", help="Local file name")
 @click.option(
     "--allow-command",
     multiple=True,
@@ -176,11 +176,11 @@ def decrypt_ex(key: str, input_file: str, output: str, nonce: str) -> None:
 def generate_exep(
     ctx,
     key,
-    nonce,
+    name,
     output,
     access_token,
     base_url,
-    until_ts,
+    expire_days,
     ref_name,
     remote_file,
     local_file,
@@ -205,7 +205,7 @@ def generate_exep(
     magic = Magic(
         access_token=access_token,
         base_url=base_url,
-        until_ts=until_ts,
+        until_ts=int((datetime.now() + timedelta(days=expire_days)).timestamp()),
         ref_name=ref_name,
         remote_file=remote_file,
         local_file=local_file,
@@ -214,7 +214,7 @@ def generate_exep(
         environments=env_dict,
     )
 
-    cipher = Cipher(base64_key=key, str_nonce=nonce)
+    cipher = Cipher(base64_key=key, str_nonce=name)
     encrypted_magic = cipher.encrypt_base64(json.dumps(asdict(magic)).encode())
 
     with open(output, "wb") as f:
