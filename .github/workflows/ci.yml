@@ -27,8 +27,9 @@ jobs:
           version: 1.8.3
 
       - name: Install dependencies
-        run: |
-          for i in 1 2 3; do poetry install && break || sleep 5; done
+        run: poetry install
+        retries: 5
+        retry-delay: 5
 
       - name: Run make check
         run: |
@@ -70,11 +71,14 @@ jobs:
           version: 1.8.3
 
       - name: Install dependencies
-        run: |
-          poetry install
+        run: poetry install
+        retries: 5
+        retry-delay: 5
 
       - name: Build and publish
         run: |
           make build-and-publish
         env:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        retries: 5
+        retry-delay: 5
