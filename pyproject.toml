@@ -1,11 +1,13 @@
 [tool.poetry]
 name = "exep_tools"
-version = "0.1.6"
+version = "0.1.7"
 description = "-"
 authors = []
 homepage = "https://pypi.org/project/exep_tools"
 packages = [{ include = "exep_tools" }]
 include = [
+    "exep_tools/*.pyi",
+    "exep_tools/**/*.pyi",
     "exep_tools/*.so",
     "exep_tools/**/*.so",
     "exep_tools/**/*.pyd",

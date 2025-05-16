@@ -70,8 +70,10 @@ def decrypt_data(key: str, data: str, nonce: str) -> None:
 
 @cli.command()
 @click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
-@click.option("-i", "--input-file", prompt="Input file", help="Path to the encrypted file")
-@click.option("-o", "--output", prompt="Output file", help="Path to save the decrypted file")
+@click.option(
+    "-i", "--input-file", prompt="Input file", type=click.Path(exists=True), help="Path to the encrypted file"
+)
+@click.option("-o", "--output", prompt="Output file", type=click.Path(), help="Path to save the decrypted file")
 @click.option(
     "-n",
     "--nonce",
@@ -97,8 +99,10 @@ def encrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
 
 @cli.command()
 @click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
-@click.option("-i", "--input-file", prompt="Input file", help="Path to the encrypted file")
-@click.option("-o", "--output", prompt="Output file", help="Path to save the decrypted file")
+@click.option(
+    "-i", "--input-file", prompt="Input file", type=click.Path(exists=True), help="Path to the encrypted file"
+)
+@click.option("-o", "--output", prompt="Output file", type=click.Path(), help="Path to save the decrypted file")
 @click.option(
     "-n",
     "--nonce",
@@ -221,6 +225,37 @@ def generate_exep(
         f.write(encrypted_magic)
 
     click.echo(f"Encrypted magic saved to {output}")
+
+
+@cli.command()
+@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
+@click.option(
+    "-n",
+    "--nonce",
+    prompt="Nonce",
+    envvar="EXLN",
+    help="Nonce for AES encryption (optional)",
+)
+@click.option("-e", "--exep-file", prompt="EXEP file", type=click.Path(exists=True), help="Path to the EXEP file")
+@click.option("-j", "--json-content", prompt="JSON content", help="Path to the JSON content")
+def merge_exep(key: str, nonce: str, exep_file: str, json_content: str) -> None:
+    """
+    Merge the EXEP file with the JSON content.
+    """
+    cipher = Cipher(base64_key=key, str_nonce=nonce)
+    with open(exep_file, "rb") as f:
+        encrypted = f.read()
+
+    decrypted = cipher.decrypt_base64(encrypted.decode())
+    magic = json.loads(decrypted)
+
+    new_magic = json.loads(json_content)
+    for key, value in new_magic.items():
+        if key in magic:
+            magic[key] = value
+
+    with open(exep_file, "wb") as f:
+        f.write(cipher.encrypt_base64(json.dumps(magic).encode()))
 
 
 if __name__ == "__main__":
