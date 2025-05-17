@@ -3,7 +3,7 @@ import codecs
 import json
 import os
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import mock_open, patch
 
 import pytest
 
@@ -240,16 +240,18 @@ class TestLoader:
     def test_get_file_uses_local_if_exists(self, loader):
         """Test that get_file uses local file if it exists and isn't expired"""
         mock_local_content = "local content"
-        mock_time = datetime.now(UTC).timestamp()
+        # 设置未来的过期时间
+        future_time = int((datetime.now(UTC) + timedelta(days=1)).timestamp())
+        loader.loaded_magic.until_ts = future_time
 
-        # Mock the get_local_file method to return our test content
+        # 使用当前时间（小于过期时间）
+        current_time = int(datetime.now(UTC).timestamp())
+
+        # Mock the get_local_file method to return our test content and current time
         with (
-            patch.object(
-                loader,
-                "get_local_file",
-                return_value=(mock_local_content, int(mock_time)),
-            ),
+            patch.object(loader, "get_local_file", return_value=(mock_local_content, current_time)),
             patch.object(loader, "get_remote_file") as mock_get_remote,
+            patch("os.path.exists", return_value=True),
         ):
             content = loader.get_file()
 
@@ -257,8 +259,8 @@ class TestLoader:
             # Make sure we didn't call get_remote_file
             mock_get_remote.assert_not_called()
 
-    def test_get_file_uses_remote_if_local_missing(self, requests_mock, loader, tmp_path):
-        """Test that get_file uses remote file if local is missing (真实文件写入)"""
+    def test_get_file_uses_remote_if_local_missing(self, loader, tmp_path):
+        """Test that get_file uses remote file if local is missing"""
         # 切换到临时目录
         old_cwd = os.getcwd()
         os.chdir(tmp_path)
@@ -267,49 +269,114 @@ class TestLoader:
             # 设置 loader 的 loaded_magic.local_file 路径为临时目录下的文件
             local_file = tmp_path / "test_remote_write.txt"
             loader.loaded_magic.local_file = str(local_file)
+
             # 确保本地文件不存在
             if local_file.exists():
                 local_file.unlink()
-            # mock get_remote_file 返回内容和时间
-            now = datetime.now(UTC)
 
-            def fake_get_remote_file():
-                return mock_remote_content, int(now.timestamp())
+            # 设置未来的过期时间
+            future_time = int((datetime.now(UTC) + timedelta(days=1)).timestamp())
+            loader.loaded_magic.until_ts = future_time
 
-            loader.get_remote_file = fake_get_remote_file
-            # 调用 get_file，应该会写入本地文件
-            content = loader.get_file()
-            assert content == mock_remote_content
-            # 校验本地文件已被写入
-            assert local_file.exists()
-            with open(local_file, encoding="utf-8") as f:
-                file_content = f.read()
-            assert file_content == mock_remote_content
+            # mock get_remote_file 返回内容和当前时间（小于过期时间）
+            now = int(datetime.now(UTC).timestamp())
+
+            with (
+                patch.object(loader, "get_remote_file", return_value=(mock_remote_content, now)),
+                patch("os.path.exists", return_value=False),  # 确保认为本地文件不存在
+            ):
+                # 调用 get_file，应该调用远程并写入本地
+                content = loader.get_file()
+                assert content == mock_remote_content
         finally:
             os.chdir(old_cwd)
 
     def test_get_file_expired(self, loader, tmp_path):
-        """Test that get_file raises error if file is expired (真实文件)"""
+        """Test that get_file handles expired local file by deleting it and trying remote file"""
         # 切换到临时目录
         old_cwd = os.getcwd()
         os.chdir(tmp_path)
         try:
+            # 准备本地文件
             mock_local_content = "local content"
-            # 生成本地文件
+            mock_remote_content = "remote content"
             local_file = tmp_path / "test_expired.txt"
             with open(local_file, "w", encoding="utf-8") as f:
                 f.write(mock_local_content)
+
             # 设置 loader 的 loaded_magic.local_file 路径
             loader.loaded_magic.local_file = str(local_file)
-            # 设置过期时间为昨天
-            past_time = (datetime.now(UTC) - timedelta(days=1)).timestamp()
-            loader.loaded_magic.until_ts = int(past_time)
-            # 修改文件时间戳为当前时间
-            now = datetime.now(UTC).timestamp()
-            os.utime(local_file, (now, now))
-            # 调用 get_file，应该抛出过期异常
-            with pytest.raises(RuntimeError, match="EXEP is no longer valid"):
-                loader.get_file()
+
+            # 设置过期时间为过去的时间（比文件时间早）
+            past_time = int((datetime.now(UTC) - timedelta(days=1)).timestamp())
+            loader.loaded_magic.until_ts = past_time
+
+            # 模拟本地文件返回的时间大于等于过期时间
+            # 这会导致本地文件被删除，然后尝试获取远程文件
+            future_time = int((datetime.now(UTC) + timedelta(days=2)).timestamp())
+
+            with (
+                patch.object(loader, "get_local_file", return_value=(mock_local_content, future_time)),
+                patch.object(loader, "get_remote_file") as mock_get_remote,
+                patch("os.remove") as mock_remove,  # 模拟文件删除
+            ):
+                # 配置 get_remote_file 模拟返回内容和过期的时间
+                mock_get_remote.return_value = (mock_remote_content, future_time)
+
+                # 调用 get_file 应该报错，因为远程文件也过期了
+                with pytest.raises(RuntimeError, match="EXEP is no longer valid"):
+                    loader.get_file()
+
+                # 验证删除了本地文件
+                mock_remove.assert_called_once_with(str(local_file))
+                # 验证尝试了获取远程文件
+                mock_get_remote.assert_called_once()
+        finally:
+            os.chdir(old_cwd)
+
+    def test_get_file_local_expired_remote_valid(self, loader, tmp_path):
+        """Test that get_file deletes expired local file and fetches valid remote file"""
+        # 切换到临时目录
+        old_cwd = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            # 准备本地文件
+            mock_local_content = "local content"
+            mock_remote_content = "remote content"
+            local_file = tmp_path / "test_expired_remote_valid.txt"
+            with open(local_file, "w", encoding="utf-8") as f:
+                f.write(mock_local_content)
+
+            # 设置 loader 的 loaded_magic.local_file 路径
+            loader.loaded_magic.local_file = str(local_file)
+
+            # 设置未来的过期时间
+            future_time = int((datetime.now(UTC) + timedelta(days=1)).timestamp())
+            loader.loaded_magic.until_ts = future_time
+
+            # 模拟本地文件时间大于等于过期时间（过期）
+            expired_time = future_time + 100
+            # 模拟远程文件时间小于过期时间（有效）
+            valid_time = future_time - 100
+
+            with (
+                patch.object(loader, "get_local_file", return_value=(mock_local_content, expired_time)),
+                patch.object(loader, "get_remote_file", return_value=(mock_remote_content, valid_time)),
+                patch("os.remove") as mock_remove,  # 模拟文件删除
+                patch("os.path.exists", return_value=True),  # 确保认为本地文件存在
+                patch("builtins.open", mock_open()) as mock_file,  # 模拟文件写入
+            ):
+                # 调用 get_file，应该删除本地过期文件，获取并保存远程文件
+                content = loader.get_file()
+
+                # 验证结果
+                assert content == mock_remote_content
+                # 验证删除了本地文件
+                mock_remove.assert_called_once_with(str(local_file))
+                # 验证获取了远程文件
+                # 验证写入了远程文件内容到本地
+                mock_file.assert_called_with(str(local_file), "wb")
+                mock_file().write.assert_called_with(mock_remote_content.encode())
         finally:
             os.chdir(old_cwd)
 

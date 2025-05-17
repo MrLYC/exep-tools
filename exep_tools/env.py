@@ -75,31 +75,58 @@ class Loader:
 
     def get_local_file(self) -> tuple[str, int]:
         loaded_magic = self.loaded_magic
-        if not os.path.exists(loaded_magic.local_file):
-            raise FileNotFoundError(f"File not found: {loaded_magic.local_file}")
+        file_path = loaded_magic.local_file
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
 
-        with open(loaded_magic.local_file) as f:
+        with open(file_path) as f:
             content = f.read()
-        return content, int(datetime.now(UTC).timestamp())
+
+        # 获取当前机器时间和文件的创建、修改、访问时间中的最大值
+        current_time = int(datetime.now(UTC).timestamp())
+        stat_info = os.stat(file_path)
+        # st_ctime 是文件创建时间（Windows）或最后元数据更改时间（Unix）
+        # st_mtime 是文件最后修改时间
+        # st_atime 是文件最后访问时间
+        file_times = [stat_info.st_ctime, stat_info.st_mtime, stat_info.st_atime]
+        max_file_time = max([*file_times, current_time])
+
+        return content, int(max_file_time)
 
     def get_file(self) -> str:
         loaded_magic = self.loaded_magic
         until_time = loaded_magic.until_ts
+        local_file_path = loaded_magic.local_file
 
-        try:
-            content, ftime = self.get_local_file()
-            need_update = False
-        except FileNotFoundError:
-            content, ftime = self.get_remote_file()
-            need_update = True
+        # 检查本地文件是否存在
+        if os.path.exists(local_file_path):
+            try:
+                # 尝试读取本地文件
+                content, ftime = self.get_local_file()
+                # 如果本地文件过期，删除然后按远程文件处理
+                if ftime >= until_time:
+                    os.remove(local_file_path)
+                    # 按第一种情况（远程文件）处理
+                    return self._get_and_save_remote_file(until_time)
+                else:
+                    # 本地文件有效，直接返回内容
+                    return content
+            except FileNotFoundError:
+                # 如果读取过程中文件被删除，按远程文件处理
+                return self._get_and_save_remote_file(until_time)
+        # 本地文件不存在，按远程文件处理
+        return self._get_and_save_remote_file(until_time)
 
-        if ftime > until_time:
+    def _get_and_save_remote_file(self, until_time: int) -> str:
+        """获取远程文件并保存到本地"""
+        content, ftime = self.get_remote_file()
+        # 检查远程文件是否过期
+        if ftime >= until_time:
             raise RuntimeError(f"EXEP is no longer valid, last modified time: {ftime}, expired time: {until_time}")
 
-        elif need_update:
-            # get_remote_file 返回的 content 是 str，需要编码为 bytes
-            with open(loaded_magic.local_file, "wb") as f:
-                f.write(content.encode())
+        # 保存远程文件到本地
+        with open(self.loaded_magic.local_file, "wb") as f:
+            f.write(content.encode())
 
         return content
 
