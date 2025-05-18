@@ -196,3 +196,33 @@ class TestEXLoader:
         with patch.object(loader, "load_from_local", return_value=None):
             with pytest.raises(RuntimeError, match="无法加载 EX"):
                 loader.load()
+
+    def test_save_to_local_with_symlinks(self, cipher, ex_data, tmp_path):
+        """测试保存 EX 到本地并创建符号链接"""
+        # 创建加密的 EX 数据
+        ex_json = json.dumps(ex_data)
+        encrypted_ex = cipher.encrypt_base64(ex_json.encode()).decode()
+
+        # 创建临时目录作为搜索路径
+        primary_path = tmp_path / "primary" / ".ex"
+        secondary_path = tmp_path / "secondary" / ".ex"
+
+        # 确保父目录存在
+        primary_path.parent.mkdir(parents=True, exist_ok=True)
+        secondary_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # 创建 EXLoader 并设置搜索路径
+        loader = EXLoader(cipher)
+        loader._ex_search_paths = [str(primary_path), str(secondary_path)]
+
+        # 保存 EX 到本地
+        loader._save_to_local(encrypted_ex)
+
+        # 验证主文件是否正确创建
+        assert primary_path.exists()
+        assert primary_path.read_text() == encrypted_ex
+
+        # 验证符号链接是否正确创建
+        assert secondary_path.exists()
+        assert secondary_path.is_symlink()
+        assert secondary_path.resolve() == primary_path.resolve()

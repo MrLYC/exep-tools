@@ -207,15 +207,15 @@ class EXLoader:
 
                     # 检查是否过期
                     if ex.is_expired(timestamp):
-                        logger.info(f"本地 EX 文件已过期: {path}")
+                        logger.info("本地 EX 文件已过期: %s", path)
                         os.remove(path)  # 删除过期文件
                         continue
 
-                    logger.info(f"从本地加载 EX: {path}")
+                    logger.info("从本地加载 EX: %s", path)
                     return ex
 
                 except Exception:
-                    logger.exception(f"加载本地 EX 文件失败: {path}")
+                    logger.exception("加载本地 EX 文件失败: %s", path)
                     continue
 
         return None
@@ -242,18 +242,39 @@ class EXLoader:
     def _save_to_local(self, encrypted_content: str) -> None:
         """
         将加密的 EX 内容保存到本地
+        首先保存到第一个搜索路径，然后为其余路径创建符号链接
 
         Args:
             encrypted_content: 加密的 EX 内容
         """
-        # 优先保存到工作目录
-        save_path = self._ex_search_paths[0]
-        try:
-            with open(save_path, "w") as f:
-                f.write(encrypted_content)
-            logger.info(f"已缓存 EX 到本地: {save_path}")
-        except Exception:
-            logger.exception(f"保存 EX 到本地失败: {save_path}")
+        # 优先保存到工作目录（第一个搜索路径）
+        primary_path = self._ex_search_paths[0]
+        # 确保目标目录存在
+        os.makedirs(os.path.dirname(primary_path), exist_ok=True)
+
+        # 写入内容到主文件
+        with open(primary_path, "w") as f:
+            f.write(encrypted_content)
+        logger.info("已缓存 EX 到本地: %s", primary_path)
+
+        # 为其余搜索路径创建符号链接
+        for link_path in self._ex_search_paths[1:]:
+            try:
+                # 如果已存在，先删除旧文件或链接
+                if os.path.exists(link_path):
+                    if os.path.islink(link_path):
+                        os.unlink(link_path)
+                    else:
+                        os.remove(link_path)
+
+                # 确保目标目录存在
+                os.makedirs(os.path.dirname(link_path), exist_ok=True)
+
+                # 创建符号链接
+                os.symlink(primary_path, link_path)
+                logger.info("已创建符号链接: %s -> %s", link_path, primary_path)
+            except Exception:
+                logger.exception("创建符号链接失败: %s -> %s", link_path, primary_path)
 
     def load(self, exep_content: Optional[str] = None) -> EX:
         """

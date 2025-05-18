@@ -122,7 +122,9 @@ class Loader:
         content, ftime = self.get_remote_file()
         # 检查远程文件是否过期
         if ftime >= until_time:
-            raise RuntimeError(f"EXEP is no longer valid, last modified time: {ftime}, expired time: {until_time}")
+            raise RuntimeError(
+                "EXEP is no longer valid, last modified time: %d, expired time: %d" % (ftime, until_time)
+            )
 
         # 保存远程文件到本地
         with open(self.loaded_magic.local_file, "wb") as f:
