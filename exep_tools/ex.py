@@ -54,14 +54,11 @@ class EX:
 
 
 @dataclass
-class EXEP:
+class EXEP(EX):
     """
     EXEP 是 EX 的一种扩展协议，主要是对 payload 的结构进行固化。
     通过 EXEP 可以配置获取 EX 的远程请求参数。
     """
-
-    meta: dict[str, Any]
-    payload: dict[str, Any]
 
     @property
     def url(self) -> str:
@@ -84,9 +81,14 @@ class EXEP:
         return self.payload.get("response_headers", [])
 
     @property
-    def expire(self) -> int:
-        """获取过期时间戳"""
-        return self.meta.get("expire", 0)
+    def name(self) -> str:
+        """获取名称"""
+        return self.meta.get("name", "")
+
+    @property
+    def filename(self) -> str:
+        """获取文件名，由名称+.ex组成"""
+        return f"{self.name}.ex"
 
     @staticmethod
     def from_json(json_data: str) -> "EXEP":
@@ -109,9 +111,22 @@ class EXLoader:
             cipher: 用于加解密的 Cipher 对象
         """
         self.cipher = cipher
-        self._ex_search_paths = [
-            os.path.join(os.getcwd(), ".ex"),  # 工作目录
-            os.path.join(os.path.expanduser("~"), ".ex"),  # home 目录
+        self._filename = ".ex"  # 默认文件名
+
+    def _get_search_paths(self, filename: Optional[str] = None) -> list[str]:
+        """
+        获取 EX 文件的搜索路径列表
+
+        Args:
+            filename: 可选，EX 文件名，默认为 .ex
+
+        Returns:
+            list[str]: 搜索路径列表
+        """
+        filename = filename or self._filename
+        return [
+            os.path.join(os.getcwd(), filename),  # 工作目录
+            os.path.join(os.path.expanduser("~"), filename),  # home 目录
         ]
 
     def load_from_exep(self, exep_content: str) -> EX:
@@ -137,19 +152,19 @@ class EXLoader:
             raise RuntimeError(f"EXEP 已过期: {exep.expire} <= {current_time}")
 
         # 获取并验证 EX
-        ex_content, response_date = self._fetch_ex_from_exep(exep)
+        encrypted_content, response_date = self._fetch_ex_from_exep(exep)
 
         # 解密 EX 内容
-        decrypted_ex = self.cipher.decrypt_base64(ex_content).decode()
-        ex = EX.from_json(decrypted_ex)
+        ex = decrypt_ex(encrypted_content, self.cipher)
 
         # 检查 EX 是否过期
         response_timestamp = int(dateutil_parser.parse(response_date).timestamp())
         if ex.is_expired(response_timestamp):
             raise RuntimeError(f"EX 已过期: {ex.expire} <= {response_timestamp}")
 
-        # 缓存到本地
-        self._save_to_local(ex_content)
+        # 获取文件名并缓存到本地
+        filename = exep.filename if exep.name else self._filename
+        self._save_to_local(encrypted_content, filename)
 
         return ex
 
@@ -184,14 +199,18 @@ class EXLoader:
         except requests.RequestException as e:
             raise RuntimeError(f"请求 EX 失败: {e}") from e
 
-    def load_from_local(self) -> Optional[EX]:
+    def load_from_local(self, filename: Optional[str] = None) -> Optional[EX]:
         """
         从本地加载 EX
+
+        Args:
+            filename: 可选，要加载的文件名，默认为 self._filename
 
         Returns:
             Optional[EX]: 如果找到有效的 EX 文件则返回 EX 对象，否则返回 None
         """
-        for path in self._ex_search_paths:
+        search_paths = self._get_search_paths(filename)
+        for path in search_paths:
             if os.path.exists(path):
                 try:
                     # 获取文件时间戳
@@ -202,8 +221,7 @@ class EXLoader:
                         encrypted_content = f.read()
 
                     # 解密内容
-                    decrypted_content = self.cipher.decrypt_base64(encrypted_content).decode()
-                    ex = EX.from_json(decrypted_content)
+                    ex = decrypt_ex(encrypted_content, self.cipher)
 
                     # 检查是否过期
                     if ex.is_expired(timestamp):
@@ -239,16 +257,31 @@ class EXLoader:
         ]
         return max(int(max(file_times)), current_time)
 
-    def _save_to_local(self, encrypted_content: str) -> None:
+    def save_ex_to_local(self, ex: EX, filename: Optional[str] = None) -> None:
+        """
+        将 EX 对象保存到本地
+
+        Args:
+            ex: 需要保存的 EX 对象
+            filename: 可选，保存的文件名，默认为 self._filename
+        """
+        encrypted_content = excrypt_ex(ex, self.cipher)
+        self._save_to_local(encrypted_content, filename)
+
+    def _save_to_local(self, encrypted_content: str, filename: Optional[str] = None) -> None:
         """
         将加密的 EX 内容保存到本地
         首先保存到第一个搜索路径，然后为其余路径创建符号链接
 
         Args:
-            encrypted_content: 加密的 EX 内容
+            encrypted_content: 加密的 EX 内容字符串
+            filename: 可选，保存的文件名，默认为 self._filename
         """
+        # 获取搜索路径
+        search_paths = self._get_search_paths(filename)
+
         # 优先保存到工作目录（第一个搜索路径）
-        primary_path = self._ex_search_paths[0]
+        primary_path = search_paths[0]
         # 确保目标目录存在
         os.makedirs(os.path.dirname(primary_path), exist_ok=True)
 
@@ -258,7 +291,7 @@ class EXLoader:
         logger.info("已缓存 EX 到本地: %s", primary_path)
 
         # 为其余搜索路径创建符号链接
-        for link_path in self._ex_search_paths[1:]:
+        for link_path in search_paths[1:]:
             try:
                 # 如果已存在，先删除旧文件或链接
                 if os.path.exists(link_path):
@@ -276,12 +309,13 @@ class EXLoader:
             except Exception:
                 logger.exception("创建符号链接失败: %s -> %s", link_path, primary_path)
 
-    def load(self, exep_content: Optional[str] = None) -> EX:
+    def load(self, exep_content: Optional[str] = None, filename: Optional[str] = None) -> EX:
         """
         加载 EX，优先从本地加载，如果本地没有或已过期则使用 EXEP 远程加载
 
         Args:
             exep_content: 可选，加密的 EXEP 内容，用于远程加载
+            filename: 可选，要加载的文件名，默认为 self._filename
 
         Returns:
             EX: 加载的 EX 对象
@@ -290,7 +324,7 @@ class EXLoader:
             RuntimeError: 如果无法加载 EX
         """
         # 尝试从本地加载
-        ex = self.load_from_local()
+        ex = self.load_from_local(filename)
         if ex:
             return ex
 
@@ -299,3 +333,34 @@ class EXLoader:
             return self.load_from_exep(exep_content)
 
         raise RuntimeError("无法加载 EX: 本地 EX 不可用且未提供 EXEP")
+
+
+def excrypt_ex(ex: EX, cipher: Cipher) -> str:
+    """
+    将 EX 对象加密为字符串
+
+    Args:
+        ex: EX 对象
+        cipher: 用于加密的 Cipher 对象
+
+    Returns:
+        str: 加密后的 EX 字符串
+    """
+    ex_json = ex.to_json()
+    encrypted_ex = cipher.encrypt_base64(ex_json.encode()).decode()
+    return encrypted_ex
+
+
+def decrypt_ex(encrypted_ex: str, cipher: Cipher) -> EX:
+    """
+    解密字符串为 EX 对象
+
+    Args:
+        encrypted_ex: 加密的 EX 字符串
+        cipher: 用于解密的 Cipher 对象
+
+    Returns:
+        EX: 解密后的 EX 对象
+    """
+    decrypted_ex = cipher.decrypt_base64(encrypted_ex.encode()).decode()
+    return EX.from_json(decrypted_ex)

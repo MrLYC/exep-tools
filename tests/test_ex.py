@@ -28,7 +28,7 @@ def exep_data():
     # 设置为未来时间，确保测试时没有过期
     future_time = int((datetime.now(UTC) + timedelta(days=2)).timestamp())
     return {
-        "meta": {"expire": future_time},
+        "meta": {"expire": future_time, "name": "test_exep"},
         "payload": {
             "url": "https://example.com/ex",
             "request_headers": {"Authorization": "Bearer test"},
@@ -96,10 +96,24 @@ class TestEXEP:
         assert exep.queries == exep_data["payload"]["queries"]
         assert exep.response_headers == exep_data["payload"]["response_headers"]
         assert exep.expire == exep_data["meta"]["expire"]
+        assert exep.name == exep_data["meta"]["name"]
+        assert exep.filename == f"{exep_data['meta']['name']}.ex"
+
+    def test_name_and_path(self):
+        """测试 name 和 path 属性"""
+        # 测试有名称的情况
+        exep_with_name = EXEP(meta={"name": "test"}, payload={})
+        assert exep_with_name.name == "test"
+        assert exep_with_name.filename == "test.ex"
+
+        # 测试无名称的情况
+        exep_without_name = EXEP(meta={}, payload={})
+        assert exep_without_name.name == ""
+        assert exep_without_name.filename == ".ex"
 
 
 class TestEXLoader:
-    def test_load_from_exep(self, cipher, encrypted_exep, ex_data, requests_mock):
+    def test_load_from_exep(self, cipher, encrypted_exep, exep_data, ex_data, requests_mock):
         """测试通过 EXEP 加载 EX"""
         # 模拟 EX 请求响应
         ex_url = "https://example.com/ex"
@@ -125,7 +139,7 @@ class TestEXLoader:
 
             assert ex.meta == ex_data["meta"]
             assert ex.payload == ex_data["payload"]
-            mock_save.assert_called_once_with(encrypted_ex)
+            mock_save.assert_called_once_with(encrypted_ex, f"{exep_data['meta']['name']}.ex")
 
     def test_load_from_local(self, cipher, encrypted_ex, ex_data, tmp_path):
         """测试从本地加载 EX"""
@@ -134,9 +148,10 @@ class TestEXLoader:
         with open(ex_file, "w") as f:
             f.write(encrypted_ex)
 
-        # 创建 EXLoader 和修改搜索路径
+        # 创建 EXLoader 并重写 _get_search_paths 方法
         loader = EXLoader(cipher)
-        loader._ex_search_paths = [str(ex_file)]
+        # 重写方法来返回我们的测试路径
+        loader._get_search_paths = lambda filename=None: [str(ex_file)]
 
         # 加载本地 EX
         ex = loader.load_from_local()
@@ -160,9 +175,10 @@ class TestEXLoader:
         with open(ex_file, "w") as f:
             f.write(encrypted_ex)
 
-        # 创建 EXLoader 和修改搜索路径
+        # 创建 EXLoader 并重写 _get_search_paths 方法
         loader = EXLoader(cipher)
-        loader._ex_search_paths = [str(ex_file)]
+        # 重写方法来返回我们的测试路径
+        loader._get_search_paths = lambda filename=None: [str(ex_file)]
 
         # 模拟文件删除
         with patch("os.remove") as mock_remove:
@@ -180,15 +196,15 @@ class TestEXLoader:
         with patch.object(loader, "load_from_local", return_value=None) as mock_local:
             with patch.object(loader, "load_from_exep") as mock_exep:
                 loader.load(encrypted_exep)
-                mock_local.assert_called_once()
+                mock_local.assert_called_once_with(None)  # 传入默认文件名参数
                 mock_exep.assert_called_once_with(encrypted_exep)
 
         # 情况2: 本地有文件
         ex_obj = MagicMock()
         with patch.object(loader, "load_from_local", return_value=ex_obj) as mock_local:
             with patch.object(loader, "load_from_exep") as mock_exep:
-                result = loader.load(encrypted_exep)
-                mock_local.assert_called_once()
+                result = loader.load(encrypted_exep, "custom.ex")
+                mock_local.assert_called_once_with("custom.ex")
                 mock_exep.assert_not_called()
                 assert result == ex_obj
 
@@ -211,9 +227,10 @@ class TestEXLoader:
         primary_path.parent.mkdir(parents=True, exist_ok=True)
         secondary_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # 创建 EXLoader 并设置搜索路径
+        # 创建 EXLoader 并重写 _get_search_paths 方法
         loader = EXLoader(cipher)
-        loader._ex_search_paths = [str(primary_path), str(secondary_path)]
+        # 重写方法来返回我们的测试路径
+        loader._get_search_paths = lambda filename=None: [str(primary_path), str(secondary_path)]
 
         # 保存 EX 到本地
         loader._save_to_local(encrypted_ex)

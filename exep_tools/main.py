@@ -1,15 +1,15 @@
 import base64
 import codecs
 import json
-from dataclasses import asdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import click
 from Crypto.Random import get_random_bytes
 
 from exep_tools.crypto import Cipher
-from exep_tools.env import Magic
-from exep_tools.ex import EXLoader
+from exep_tools.ex import EX, EXEP, EXLoader, excrypt_ex
+
+now = datetime.now(UTC)
 
 
 @click.group()
@@ -178,7 +178,7 @@ def decrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
     help="Environment variable in KEY=VALUE format, can be used multiple times",
 )
 @click.pass_context
-def generate_exep(
+def generate_gitlab_exep(
     ctx,
     key,
     name,
@@ -194,7 +194,10 @@ def generate_exep(
     environment,
 ):
     """
-    生成加密后的 magic 文件。
+    生成加密后的 EXEP 文件。
+
+    这个命令用于创建包含远程访问配置的 EXEP 文件。EXEP 是 EX 的扩展协议，
+    专门用于配置获取 EX 的远程请求参数。生成的 EXEP 文件会被加密存储。
     """
     # 处理 allow/disallow_commands
     allow_commands = list(allow_command) if allow_command else None
@@ -207,25 +210,86 @@ def generate_exep(
             if "=" in item:
                 k, v = item.split("=", 1)
                 env_dict[k] = v
-    magic = Magic(
-        access_token=access_token,
-        base_url=base_url,
-        until_ts=int((datetime.now() + timedelta(days=expire_days)).timestamp()),
-        ref_name=ref_name,
-        remote_file=remote_file,
-        local_file=local_file,
-        allow_commands=allow_commands,
-        disallow_commands=disallow_commands,
-        environments=env_dict,
+
+    # 创建 EXEP 对象
+    exep = EXEP(
+        meta={
+            "expire": int((now + timedelta(days=expire_days)).timestamp()),
+            "name": name,
+        },
+        payload={
+            "url": f"{base_url}/api/v1/repos/{ref_name}/{remote_file}",
+            "request_headers": {
+                "Authorization": f"Bearer {access_token}",
+            },
+            "queries": {},
+            "response_headers": [],
+            "ref_name": ref_name,
+            "remote_file": remote_file,
+            "local_file": local_file,
+            "allow_commands": allow_commands,
+            "disallow_commands": disallow_commands,
+            "environments": env_dict,
+        },
     )
 
     cipher = Cipher(base64_key=key, str_nonce=name)
-    encrypted_magic = cipher.encrypt_base64(json.dumps(asdict(magic)).encode())
+    encrypted_exep = excrypt_ex(exep, cipher)
 
-    with open(output, "wb") as f:
-        f.write(encrypted_magic)
+    with open(output, "w") as f:
+        f.write(encrypted_exep)
 
-    click.echo(f"Encrypted magic saved to {output}")
+    click.echo(f"加密的 EXEP 文件已保存到 {output}")
+
+
+# Magic结构: access_token, base_url, until_ts, ref_name, remote_file, local_file, allow_commands, disallow_commands, environments
+@cli.command()
+@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
+@click.option(
+    "-n",
+    "--name",
+    prompt="Name",
+    envvar="EXLN",
+    help="Name for the entry",
+)
+@click.option("-o", "--output", prompt="Output file", help="Path to save the encrypted .ex file")
+@click.option(
+    "-m",
+    "--meta",
+    default=f'{{"expire": {int(now.timestamp() + 86400)}}}',
+    help="Meta data in JSON format",
+)
+@click.option(
+    "-p",
+    "--payload",
+    prompt="Payload data",
+    help="Payload data in JSON format",
+)
+def generate_ex(
+    key: str,
+    name: str,
+    output: str,
+    meta: str,
+    payload: str,
+):
+    """
+    生成加密后的 EX 文件。
+    """
+    cipher = Cipher(base64_key=key, str_nonce=name)
+
+    # 创建 EX 对象
+    ex = EX(
+        meta=json.loads(meta),
+        payload=json.loads(payload),
+    )
+
+    # 使用 excrypt_ex 函数加密 EX 对象
+    encrypted_ex = excrypt_ex(ex, cipher)
+
+    with open(output, "w") as f:
+        f.write(encrypted_ex)
+
+    click.echo(f"Encrypted EX file saved to {output}")
 
 
 @cli.command()
@@ -235,227 +299,22 @@ def generate_exep(
     "--nonce",
     prompt="Nonce",
     envvar="EXLN",
-    help="Nonce for AES encryption (optional)",
+    help="Nonce encryption",
 )
-@click.option("-e", "--exep-file", prompt="EXEP file", type=click.Path(exists=True), help="Path to the EXEP file")
-@click.option("-j", "--json-content", prompt="JSON content", help="Path to the JSON content")
-def merge_exep(key: str, nonce: str, exep_file: str, json_content: str) -> None:
+@click.option("-e", "--exep", prompt="EXEP content", envvar="EXEP", help="EXEP content")
+def validate_exep(key: str, nonce: str, exep: str) -> None:
     """
-    Merge the EXEP file with the JSON content.
-    """
-    cipher = Cipher(base64_key=key, str_nonce=nonce)
-    with open(exep_file, "rb") as f:
-        encrypted = f.read()
-
-    decrypted = cipher.decrypt_base64(encrypted.decode())
-    magic = json.loads(decrypted)
-
-    new_magic = json.loads(json_content)
-    for key, value in new_magic.items():
-        if key in magic:
-            magic[key] = value
-
-    with open(exep_file, "wb") as f:
-        f.write(cipher.encrypt_base64(json.dumps(magic).encode()))
-
-
-@cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for encrypting")
-@click.option(
-    "-n",
-    "--name",
-    prompt="Nonce",
-    envvar="EXLN",
-    help="Nonce for AES encryption",
-)
-@click.option("-o", "--output", prompt="Output file", type=click.Path(), help="Path to save the EX file")
-@click.option(
-    "--expire-days",
-    default=30,
-    help="Days until the EX expires",
-)
-@click.option("-p", "--payload", prompt="Payload JSON", help="JSON payload for the EX")
-def create_ex(key: str, name: str, output: str, expire_days: int, payload: str) -> None:
-    """
-    创建一个新的 EX 文件，包含指定的 payload 和过期时间。
+    验证 EXEP 文件内容是否有效。
     """
     try:
-        # 解析 payload
-        payload_dict = json.loads(payload)
-
-        # 创建 EX 数据结构
-        ex_data = {
-            "meta": {"expire": int((datetime.now() + timedelta(days=expire_days)).timestamp())},
-            "payload": payload_dict,
-        }
-
-        # 加密数据
-        cipher = Cipher(base64_key=key, str_nonce=name)
-        encrypted = cipher.encrypt_base64(json.dumps(ex_data).encode())
-
-        # 保存到文件
-        with open(output, "wb") as f:
-            f.write(encrypted)
-
-        click.echo(f"成功创建 EX 文件: {output}")
-        click.echo(f"过期时间: {datetime.fromtimestamp(ex_data['meta']['expire'])}")
+        cipher = Cipher(base64_key=key, str_nonce=nonce)
+        loader = EXLoader(cipher=cipher)
+        ex = loader.load_from_exep(exep)
     except Exception as e:
-        click.echo(f"创建 EX 文件失败: {e}", err=True)
+        click.echo(f"验证 EXEP 文件失败: {e}", err=True)
         exit(1)
 
-
-@cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
-@click.option(
-    "-n",
-    "--name",
-    prompt="Nonce",
-    envvar="EXLN",
-    help="Nonce for AES encryption",
-)
-@click.option("-f", "--file", prompt="EX file", type=click.Path(exists=True), help="Path to the EX file")
-def validate_ex(key: str, name: str, file: str) -> None:
-    """
-    验证 EX 文件是否有效（未过期）并显示内容。
-    """
-    try:
-        cipher = Cipher(base64_key=key, str_nonce=name)
-
-        # 读取文件
-        with open(file, "rb") as f:
-            encrypted = f.read().decode()
-
-        # 解密内容
-        decrypted = cipher.decrypt_base64(encrypted).decode()
-        ex_data = json.loads(decrypted)
-
-        # 检查格式
-        if "meta" not in ex_data or "payload" not in ex_data:
-            click.echo("无效的 EX 格式: 缺少 meta 或 payload 字段", err=True)
-            exit(1)
-
-        # 检查过期时间
-        expire = ex_data["meta"].get("expire", 0)
-        if not expire:
-            click.echo("无效的 EX 格式: 缺少过期时间", err=True)
-            exit(1)
-
-        current_time = int(datetime.now().timestamp())
-        expire_datetime = datetime.fromtimestamp(expire)
-
-        # 显示内容
-        click.echo(f"EX 内容: {json.dumps(ex_data, indent=2)}")
-        click.echo(f"过期时间: {expire_datetime}")
-
-        # 检查是否过期
-        if current_time >= expire:
-            click.echo("EX 已过期", err=True)
-            exit(1)
-        else:
-            days_remaining = (expire_datetime - datetime.now()).days
-            click.echo(f"EX 有效,剩余 {days_remaining} 天")
-
-    except Exception as e:
-        click.echo(f"验证 EX 文件失败: {e}", err=True)
-        exit(1)
-
-
-@cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for encrypting")
-@click.option(
-    "-n",
-    "--name",
-    prompt="Nonce",
-    envvar="EXLN",
-    help="Nonce for AES encryption",
-)
-@click.option("-o", "--output", prompt="Output file", type=click.Path(), help="Path to save the EXEP file")
-@click.option(
-    "--expire-days",
-    default=90,
-    help="Days until the EXEP expires",
-)
-@click.option("-u", "--url", prompt="EX URL", help="URL to fetch the EX")
-@click.option("--header", multiple=True, help="Request headers in format 'key:value'")
-@click.option("--query", multiple=True, help="Query parameters in format 'key:value'")
-@click.option("--require-header", multiple=True, help="Required response headers")
-def create_exep(key: str, name: str, output: str, expire_days: int, url: str, header, query, require_header) -> None:
-    """
-    创建一个 EXEP 文件，用于后续获取 EX。
-    """
-    try:
-        # 构建请求头
-        headers = {}
-        for h in header:
-            if ":" in h:
-                k, v = h.split(":", 1)
-                headers[k.strip()] = v.strip()
-
-        # 构建查询参数
-        queries = {}
-        for q in query:
-            if ":" in q:
-                k, v = q.split(":", 1)
-                queries[k.strip()] = v.strip()
-
-        # 创建 EXEP 数据结构
-        exep_data = {
-            "meta": {"expire": int((datetime.now() + timedelta(days=expire_days)).timestamp())},
-            "payload": {
-                "url": url,
-                "request_headers": headers,
-                "queries": queries,
-                "response_headers": list(require_header),
-            },
-        }
-
-        # 加密数据
-        cipher = Cipher(base64_key=key, str_nonce=name)
-        encrypted = cipher.encrypt_base64(json.dumps(exep_data).encode())
-
-        # 保存到文件
-        with open(output, "wb") as f:
-            f.write(encrypted)
-
-        click.echo(f"成功创建 EXEP 文件: {output}")
-        click.echo(f"过期时间: {datetime.fromtimestamp(exep_data['meta']['expire'])}")
-    except Exception as e:
-        click.echo(f"创建 EXEP 文件失败: {e}", err=True)
-        exit(1)
-
-
-@cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
-@click.option(
-    "-n",
-    "--name",
-    prompt="Nonce",
-    envvar="EXLN",
-    help="Nonce for AES encryption",
-)
-@click.option("-e", "--exep", prompt="EXEP file", type=click.Path(exists=True), help="Path to the EXEP file")
-def fetch_ex(key: str, name: str, exep: str) -> None:
-    """
-    通过 EXEP 获取 EX，验证并存储到本地。
-    """
-    try:
-        cipher = Cipher(base64_key=key, str_nonce=name)
-
-        # 读取 EXEP 文件
-        with open(exep, "rb") as f:
-            exep_content = f.read().decode()
-
-        # 创建 EXLoader 并加载 EX
-        loader = EXLoader(cipher)
-        ex = loader.load_from_exep(exep_content)
-
-        click.echo("成功获取并验证 EX")
-        click.echo(f"过期时间: {datetime.fromtimestamp(ex.expire)}")
-        click.echo(f"Payload: {json.dumps(ex.payload, indent=2)}")
-
-    except Exception as e:
-        click.echo(f"获取 EX 失败: {e}", err=True)
-        exit(1)
+    click.echo(f"EXEP 验证成功，meta 个数: {len(ex.meta)}， payload 个数: {len(ex.payload)}")
 
 
 if __name__ == "__main__":

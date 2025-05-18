@@ -20,7 +20,7 @@ def key():
 @pytest.fixture
 def name():
     """Create a sample name"""
-    return "yakov"
+    return "mrlyc"
 
 
 @pytest.fixture
