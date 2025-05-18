@@ -4,10 +4,8 @@ from exep_tools.crypto import Cipher
 
 
 class TestCipher:
-    def test_init_with_str(self):
+    def test_init_with_str(self, key, nonce):
         """Test initialization with string key and nonce"""
-        key = "0000000000000000"
-        nonce = "yakov"
         cipher = Cipher(str_key=key, str_nonce=nonce)
 
         assert cipher.key == key.encode()
@@ -22,9 +20,9 @@ class TestCipher:
         assert cipher.key == base64.b64decode(key)
         assert cipher.nonce == base64.b64decode(nonce)
 
-    def test_encrypt_decrypt(self):
+    def test_encrypt_decrypt(self, key, nonce):
         """Test encryption and decryption work correctly"""
-        cipher = Cipher(str_key="0000000000000000", str_nonce="yakov")
+        cipher = Cipher(str_key=key, str_nonce=nonce)
         original_data = b"Hello, this is a test message!"
 
         # Test encrypt/decrypt
@@ -34,9 +32,9 @@ class TestCipher:
         assert decrypted == original_data
         assert encrypted != original_data  # Ensure encryption actually happened
 
-    def test_encrypt_decrypt_base64(self):
+    def test_encrypt_decrypt_base64(self, key, nonce):
         """Test base64 encryption and decryption work correctly"""
-        cipher = Cipher(str_key="0000000000000000", str_nonce="yakov")
+        cipher = Cipher(str_key=key, str_nonce=nonce)
         original_data = b"Hello, this is a test message!"
 
         # Test encrypt_base64/decrypt_base64

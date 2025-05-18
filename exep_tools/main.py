@@ -9,6 +9,7 @@ from Crypto.Random import get_random_bytes
 
 from exep_tools.crypto import Cipher
 from exep_tools.env import Magic
+from exep_tools.ex import EXLoader
 
 
 @click.group()
@@ -256,6 +257,205 @@ def merge_exep(key: str, nonce: str, exep_file: str, json_content: str) -> None:
 
     with open(exep_file, "wb") as f:
         f.write(cipher.encrypt_base64(json.dumps(magic).encode()))
+
+
+@cli.command()
+@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for encrypting")
+@click.option(
+    "-n",
+    "--name",
+    prompt="Nonce",
+    envvar="EXLN",
+    help="Nonce for AES encryption",
+)
+@click.option("-o", "--output", prompt="Output file", type=click.Path(), help="Path to save the EX file")
+@click.option(
+    "--expire-days",
+    default=30,
+    help="Days until the EX expires",
+)
+@click.option("-p", "--payload", prompt="Payload JSON", help="JSON payload for the EX")
+def create_ex(key: str, name: str, output: str, expire_days: int, payload: str) -> None:
+    """
+    创建一个新的 EX 文件，包含指定的 payload 和过期时间。
+    """
+    try:
+        # 解析 payload
+        payload_dict = json.loads(payload)
+
+        # 创建 EX 数据结构
+        ex_data = {
+            "meta": {"expire": int((datetime.now() + timedelta(days=expire_days)).timestamp())},
+            "payload": payload_dict,
+        }
+
+        # 加密数据
+        cipher = Cipher(base64_key=key, str_nonce=name)
+        encrypted = cipher.encrypt_base64(json.dumps(ex_data).encode())
+
+        # 保存到文件
+        with open(output, "wb") as f:
+            f.write(encrypted)
+
+        click.echo(f"成功创建 EX 文件: {output}")
+        click.echo(f"过期时间: {datetime.fromtimestamp(ex_data['meta']['expire'])}")
+    except Exception as e:
+        click.echo(f"创建 EX 文件失败: {e}", err=True)
+        exit(1)
+
+
+@cli.command()
+@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
+@click.option(
+    "-n",
+    "--name",
+    prompt="Nonce",
+    envvar="EXLN",
+    help="Nonce for AES encryption",
+)
+@click.option("-f", "--file", prompt="EX file", type=click.Path(exists=True), help="Path to the EX file")
+def validate_ex(key: str, name: str, file: str) -> None:
+    """
+    验证 EX 文件是否有效（未过期）并显示内容。
+    """
+    try:
+        cipher = Cipher(base64_key=key, str_nonce=name)
+
+        # 读取文件
+        with open(file, "rb") as f:
+            encrypted = f.read().decode()
+
+        # 解密内容
+        decrypted = cipher.decrypt_base64(encrypted).decode()
+        ex_data = json.loads(decrypted)
+
+        # 检查格式
+        if "meta" not in ex_data or "payload" not in ex_data:
+            click.echo("无效的 EX 格式: 缺少 meta 或 payload 字段", err=True)
+            exit(1)
+
+        # 检查过期时间
+        expire = ex_data["meta"].get("expire", 0)
+        if not expire:
+            click.echo("无效的 EX 格式: 缺少过期时间", err=True)
+            exit(1)
+
+        current_time = int(datetime.now().timestamp())
+        expire_datetime = datetime.fromtimestamp(expire)
+
+        # 显示内容
+        click.echo(f"EX 内容: {json.dumps(ex_data, indent=2)}")
+        click.echo(f"过期时间: {expire_datetime}")
+
+        # 检查是否过期
+        if current_time >= expire:
+            click.echo("EX 已过期", err=True)
+            exit(1)
+        else:
+            days_remaining = (expire_datetime - datetime.now()).days
+            click.echo(f"EX 有效,剩余 {days_remaining} 天")
+
+    except Exception as e:
+        click.echo(f"验证 EX 文件失败: {e}", err=True)
+        exit(1)
+
+
+@cli.command()
+@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for encrypting")
+@click.option(
+    "-n",
+    "--name",
+    prompt="Nonce",
+    envvar="EXLN",
+    help="Nonce for AES encryption",
+)
+@click.option("-o", "--output", prompt="Output file", type=click.Path(), help="Path to save the EXEP file")
+@click.option(
+    "--expire-days",
+    default=90,
+    help="Days until the EXEP expires",
+)
+@click.option("-u", "--url", prompt="EX URL", help="URL to fetch the EX")
+@click.option("--header", multiple=True, help="Request headers in format 'key:value'")
+@click.option("--query", multiple=True, help="Query parameters in format 'key:value'")
+@click.option("--require-header", multiple=True, help="Required response headers")
+def create_exep(key: str, name: str, output: str, expire_days: int, url: str, header, query, require_header) -> None:
+    """
+    创建一个 EXEP 文件，用于后续获取 EX。
+    """
+    try:
+        # 构建请求头
+        headers = {}
+        for h in header:
+            if ":" in h:
+                k, v = h.split(":", 1)
+                headers[k.strip()] = v.strip()
+
+        # 构建查询参数
+        queries = {}
+        for q in query:
+            if ":" in q:
+                k, v = q.split(":", 1)
+                queries[k.strip()] = v.strip()
+
+        # 创建 EXEP 数据结构
+        exep_data = {
+            "meta": {"expire": int((datetime.now() + timedelta(days=expire_days)).timestamp())},
+            "payload": {
+                "url": url,
+                "request_headers": headers,
+                "queries": queries,
+                "response_headers": list(require_header),
+            },
+        }
+
+        # 加密数据
+        cipher = Cipher(base64_key=key, str_nonce=name)
+        encrypted = cipher.encrypt_base64(json.dumps(exep_data).encode())
+
+        # 保存到文件
+        with open(output, "wb") as f:
+            f.write(encrypted)
+
+        click.echo(f"成功创建 EXEP 文件: {output}")
+        click.echo(f"过期时间: {datetime.fromtimestamp(exep_data['meta']['expire'])}")
+    except Exception as e:
+        click.echo(f"创建 EXEP 文件失败: {e}", err=True)
+        exit(1)
+
+
+@cli.command()
+@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
+@click.option(
+    "-n",
+    "--name",
+    prompt="Nonce",
+    envvar="EXLN",
+    help="Nonce for AES encryption",
+)
+@click.option("-e", "--exep", prompt="EXEP file", type=click.Path(exists=True), help="Path to the EXEP file")
+def fetch_ex(key: str, name: str, exep: str) -> None:
+    """
+    通过 EXEP 获取 EX，验证并存储到本地。
+    """
+    try:
+        cipher = Cipher(base64_key=key, str_nonce=name)
+
+        # 读取 EXEP 文件
+        with open(exep, "rb") as f:
+            exep_content = f.read().decode()
+
+        # 创建 EXLoader 并加载 EX
+        loader = EXLoader(cipher)
+        ex = loader.load_from_exep(exep_content)
+
+        click.echo("成功获取并验证 EX")
+        click.echo(f"过期时间: {datetime.fromtimestamp(ex.expire)}")
+        click.echo(f"Payload: {json.dumps(ex.payload, indent=2)}")
+
+    except Exception as e:
+        click.echo(f"获取 EX 失败: {e}", err=True)
+        exit(1)
 
 
 if __name__ == "__main__":
