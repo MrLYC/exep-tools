@@ -9,12 +9,6 @@ from exep_tools.exep_click import ContextWrapper, ExepGroup
 
 
 @pytest.fixture
-def key():
-    """Create a sample key"""
-    return "0" * 32
-
-
-@pytest.fixture
 def encrypted_magic():
     """Create a sample encrypted magic string"""
     return "mock_encrypted_magic"

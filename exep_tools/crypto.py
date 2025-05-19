@@ -13,14 +13,17 @@ class Cipher:
     str_nonce: InitVar[str] = ""
     base64_key: InitVar[str] = ""
     base64_nonce: InitVar[str] = ""
+    rot13_key: InitVar[str] = ""
     key: bytes = b""
     nonce: bytes = b""
 
-    def __post_init__(self, str_key: str, str_nonce: str, base64_key: str, base64_nonce: str) -> None:
+    def __post_init__(self, str_key: str, str_nonce: str, base64_key: str, base64_nonce: str, rot13_key: str) -> None:
         if str_key:
             self.key = str_key.encode()
         elif base64_key:
             self.key = base64.b64decode(base64_key)
+        elif self.rot13_key:
+            self.key = base64.b64decode(self.rot13_key.encode("rot13"))
 
         if str_nonce:
             self.nonce = str_nonce.encode()
