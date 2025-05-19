@@ -87,7 +87,7 @@ class TestGroup:
                 with patch("click.Group.make_context", return_value=ctx_mock):
                     group.make_context("test-info", ["arg1"])
                     mock_loader.assert_called_once()
-                    mock_loader.return_value.load.assert_called_once()
+                    mock_loader.return_value.load.assert_called_once_with(exep_content=encrypted_magic)
 
     def test_make_context_loader_init_fail(self, group, encrypted_magic):
         # Loader 初始化异常
@@ -176,8 +176,8 @@ class TestGroup:
                 # 验证EXLoader被调用时的参数正确
                 assert group.loader_key == key
 
-                # 验证load方法被调用
-                mock_loader_instance.load.assert_called_once()
+                # 验证load方法被调用，并且参数正确
+                mock_loader_instance.load.assert_called_once_with(exep_content=encrypted_magic)
 
     def test_make_context_returns_context_wrapper(self, group, encrypted_magic):
         """Test that make_context returns a ContextWrapper when EXEP is set"""

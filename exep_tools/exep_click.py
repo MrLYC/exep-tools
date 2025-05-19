@@ -64,6 +64,6 @@ class ExepGroup(BaseGroup):
 
         cipher = Cipher(rot13_key=self.loader_key, str_nonce=info_name)
         loader = EXLoader(cipher=cipher)
-        ex = loader.load()
+        ex = loader.load(exep_content=exep)
 
         return ContextWrapper(ctx, ex)
