@@ -1,13 +1,13 @@
 import base64
 import codecs
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import click
 from Crypto.Random import get_random_bytes
 
 from exep_tools.crypto import Cipher
-from exep_tools.ex import EX, EXEP, EXLoader, excrypt_ex
+from exep_tools.ex import EX, EXLoader, excrypt_ex
 
 now = datetime.now(UTC)
 
@@ -126,120 +126,6 @@ def decrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
         f.write(plaintext)
 
     click.echo(f"Decrypted file saved to {output}")
-
-
-# Magic结构: access_token, base_url, until_ts, ref_name, remote_file, local_file, allow_commands, disallow_commands, environments
-@cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
-@click.option(
-    "-n",
-    "--name",
-    prompt="Name",
-    envvar="EXLN",
-    help="Name for the entry",
-)
-@click.option("-o", "--output", prompt="Output file", help="Path to save the encrypted .exep file")
-@click.option(
-    "--access-token",
-    prompt="Access token",
-    envvar="EXEP_GITLAB_TOKEN",
-    help="GitLab access token",
-)
-@click.option("--base-url", prompt="Base URL", envvar="EXEP_GITLAB_URL", help="GitLab base URL")
-@click.option(
-    "--expire-days",
-    prompt="Expire days",
-    type=int,
-    envvar="EXEP_filePIRE_DAYS",
-    help="Number of days until expiration",
-)
-@click.option(
-    "--ref-name",
-    prompt="Ref name",
-    default="main",
-    envvar="EXEP_REF_NAME",
-    help="GitLab ref name",
-)
-@click.option("--remote-file", default=".ex", envvar="EXEP_REMOTE_FILE", help="Remote file name")
-@click.option("--local-file", default=".ex", envvar="EXEP_LOCAL_FILE", help="Local file name")
-@click.option(
-    "--allow-command",
-    multiple=True,
-    help="Allowed command, can be used multiple times",
-)
-@click.option(
-    "--disallow-command",
-    multiple=True,
-    help="Disallowed command, can be used multiple times",
-)
-@click.option(
-    "--environment",
-    multiple=True,
-    help="Environment variable in KEY=VALUE format, can be used multiple times",
-)
-@click.pass_context
-def generate_gitlab_exep(
-    ctx,
-    key,
-    name,
-    output,
-    access_token,
-    base_url,
-    expire_days,
-    ref_name,
-    remote_file,
-    local_file,
-    allow_command,
-    disallow_command,
-    environment,
-):
-    """
-    生成加密后的 EXEP 文件。
-
-    这个命令用于创建包含远程访问配置的 EXEP 文件。EXEP 是 EX 的扩展协议，
-    专门用于配置获取 EX 的远程请求参数。生成的 EXEP 文件会被加密存储。
-    """
-    # 处理 allow/disallow_commands
-    allow_commands = list(allow_command) if allow_command else None
-    disallow_commands = list(disallow_command) if disallow_command else None
-    # 处理 environments
-    env_dict = None
-    if environment:
-        env_dict = {}
-        for item in environment:
-            if "=" in item:
-                k, v = item.split("=", 1)
-                env_dict[k] = v
-
-    # 创建 EXEP 对象
-    exep = EXEP(
-        meta={
-            "expire": int((now + timedelta(days=expire_days)).timestamp()),
-            "name": name,
-        },
-        payload={
-            "url": f"{base_url}/api/v1/repos/{ref_name}/{remote_file}",
-            "request_headers": {
-                "Authorization": f"Bearer {access_token}",
-            },
-            "queries": {},
-            "response_headers": [],
-            "ref_name": ref_name,
-            "remote_file": remote_file,
-            "local_file": local_file,
-            "allow_commands": allow_commands,
-            "disallow_commands": disallow_commands,
-            "environments": env_dict,
-        },
-    )
-
-    cipher = Cipher(base64_key=key, str_nonce=name)
-    encrypted_exep = excrypt_ex(exep, cipher)
-
-    with open(output, "w") as f:
-        f.write(encrypted_exep)
-
-    click.echo(f"加密的 EXEP 文件已保存到 {output}")
 
 
 # Magic结构: access_token, base_url, until_ts, ref_name, remote_file, local_file, allow_commands, disallow_commands, environments

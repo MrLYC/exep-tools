@@ -1,3 +1,3 @@
-from exep_tools.exep_click import ExepGroup
+from exep_tools.exep_click import ExepGroup as ClickGroup
 
-__all__ = ["ExepGroup"]
+__all__ = ["ClickGroup"]
