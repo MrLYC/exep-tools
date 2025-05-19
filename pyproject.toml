@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "exep_tools"
-version = "0.2.2"
+version = "0.2.3"
 description = "-"
 authors = []
 homepage = "https://pypi.org/project/exep_tools"

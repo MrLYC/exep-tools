@@ -71,7 +71,7 @@ def repeat(s, n):
 
 @pytest.fixture
 def entry_file(temp_dirs):
-    """创建测试用的入口文件，包含 ExepGroup 装饰器"""
+    """创建测试用的入口文件，包含 ClickGroup 装饰器"""
     temp_dir, _ = temp_dirs
     entry_file_path = os.path.join(temp_dir, "entry.py")
 
@@ -79,9 +79,9 @@ def entry_file(temp_dirs):
         f.write(
             """
 import click
-from exep_tools.click import ExepGroup
+from exep_tools import ClickGroup
 
-@click.group(cls=ExepGroup)
+@click.group(cls=ClickGroup)
 def cli():
     \"\"\"Command line interface\"\"\"
     pass
@@ -138,7 +138,7 @@ def test_inject_loader_key_with_env(temp_dirs, entry_file):
     with open(entry_file) as f:
         content = f.read()
 
-    assert "@click.group(cls=ExepGroup, loader_key='test_loader_key')" in content, "加载器密钥未正确注入"
+    assert "@click.group(cls=ClickGroup, loader_key='test_loader_key')" in content, "加载器密钥未正确注入"
 
 
 def test_inject_loader_key_no_env(temp_dirs, entry_file):
@@ -156,14 +156,14 @@ def test_inject_loader_key_no_env(temp_dirs, entry_file):
         with open(entry_file) as f:
             content = f.read()
 
-        assert "@click.group(cls=ExepGroup)" in content, "文件不应被修改"
+        assert "@click.group(cls=ClickGroup)" in content, "文件不应被修改"
 
 
 def test_inject_loader_key_no_hook(temp_dirs):
-    """测试在没有 ExepGroup 装饰器的情况下注入加载器密钥"""
+    """测试在没有 ClickGroup 装饰器的情况下注入加载器密钥"""
     temp_dir, _ = temp_dirs
 
-    # 创建不包含 ExepGroup 装饰器的文件
+    # 创建不包含 ClickGroup 装饰器的文件
     entry_file_path = os.path.join(temp_dir, "no_hook_entry.py")
     with open(entry_file_path, "w") as f:
         f.write(
@@ -219,16 +219,16 @@ def test_builder_initialization():
 def test_pattern_typo_fix():
     """测试代码中的patter拼写错误是否正常工作"""
     # 此测试为了确认即使有拼写错误，代码也能正常工作
-    # 注意：builder.py 中的 hook = node.find(patter="@click.group(cls=ExepGroup)") 有拼写错误
+    # 注意：builder.py 中的 hook = node.find(patter="@click.group(cls=ClickGroup)") 有拼写错误
     # 这个测试是为了确认这个拼写错误不影响功能
 
     with tempfile.NamedTemporaryFile(mode="w+", suffix=".py", delete=False) as temp_file:
         temp_file.write(
             """
 import click
-from exep_tools.click import ExepGroup
+from exep_tools.click import ClickGroup
 
-@click.group(cls=ExepGroup)
+@click.group(cls=ClickGroup)
 def cli():
     \"\"\"Command line interface\"\"\"
     pass
