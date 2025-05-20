@@ -34,7 +34,7 @@ jobs:
           command: poetry install
 
       - name: Run check and tests
-        run: make check test example/click-commands.py
+        run: make check test functional-test
 
   publish:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')

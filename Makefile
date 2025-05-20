@@ -18,7 +18,7 @@ test: ## Test the code with pytest
 	$(eval args ?= --pdb)
 	poetry run pytest --cov exep_tools --doctest-modules --maxfail 1 ${args}
 
-example/click-commands.py:
+functional-test: ## Test the code with pytest
 	@poetry run python example/click-command.py check
 
 .PHONY: build

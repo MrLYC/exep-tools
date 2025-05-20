@@ -2,7 +2,6 @@ import os
 from typing import Any, Optional
 
 import click
-from click import Group as BaseGroup
 
 from exep_tools.crypto import Cipher, generate_nonce
 from exep_tools.ex import EXLoader
@@ -23,7 +22,19 @@ class ExDelegator:
 DELEGATOR = ExDelegator()
 
 
-class ExGroup(BaseGroup):
+class ExOption(click.Option):
+    def get_default(self, ctx: click.Context) -> Any:
+        default = super().get_default(ctx)
+        if default is not None:
+            return default
+
+        if not ctx.obj:
+            return None
+
+        return ctx.obj.get(self.name, None)
+
+
+class ExGroup(click.Group):
     def __init__(self, loader_key: str = "", *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.__loader_key = loader_key

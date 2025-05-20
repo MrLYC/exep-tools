@@ -6,10 +6,9 @@ from tempfile import TemporaryDirectory
 
 import click
 
-from exep_tools import ClickGroup, D, ex
+from exep_tools import ClickGroup, ClickOption, D
 from exep_tools import main as ex_main
 
-ex.file_protocol = True
 key, loader_key = ex_main.generate_key.callback(32)
 name = "testing"
 
@@ -24,12 +23,18 @@ def cli(ctx: click.Context):
 
 
 @cli.command()
-@click.option("--magic", default=D.magic, help="Magic")
-def check(magic: str):
+@click.option("--name", cls=ClickOption, help="Name")
+@click.option("--greeting", default=D.greeting, help="Greeting")
+def check(name: str, greeting: str):
     """检查服务是否正常工作"""
-    print(f"Magic number: {magic}")
-    if magic != "wow":
-        click.fail("Magic mismatch!")
+
+    if greeting != "hello":
+        raise click.BadParameter("Greeting must be 'hello'")
+
+    if name != "world":
+        raise click.BadParameter("Name must be 'world'")
+
+    print(f"{greeting}, {name}!")
 
 
 class ExHandler(BaseHTTPRequestHandler):
@@ -61,7 +66,7 @@ def main():
             nonce=nonce,
             output=os.path.join(temp_dir, "ex"),
             meta=f'{{"expire": {expire}}}',
-            payload='{"magic": "wow"}',
+            payload='{"name": "world", "greeting": "hello"}',
         )
         ExHandler.ex = ex.encode("utf-8")
 
