@@ -57,6 +57,8 @@ class ExepGroup(BaseGroup):
         **extra,
     ) -> "click.Context":
         ctx = super().make_context(info_name, args, parent, **extra)
+        if not self.loader_key:
+            return ctx
 
         exep = os.getenv("EXEP")
         if not exep:

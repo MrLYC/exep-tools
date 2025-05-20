@@ -26,9 +26,12 @@ def generate_key(length: int) -> None:
     """
     key_bytes = get_random_bytes(length)
     key = base64.b64encode(key_bytes).decode()
+    loader_key = codecs.encode(key, "rot13")
 
-    click.echo(f"Generated key: {key}")
-    click.echo(f"Key for build: {codecs.encode(key, 'rot13')}")
+    click.echo(f"EXK: {key}")
+    click.echo(f"EXLK: {loader_key}")
+
+    return key, loader_key
 
 
 @cli.command()
@@ -48,6 +51,7 @@ def encrypt_data(key: str, data: str, nonce: str) -> None:
     cipher = Cipher(base64_key=key, str_nonce=nonce)
     encrypted = cipher.encrypt_base64(data.encode("utf-8"))
     click.echo(f"Encrypting data: {encrypted.decode()}")
+    return encrypted
 
 
 @cli.command()
@@ -67,6 +71,7 @@ def decrypt_data(key: str, data: str, nonce: str) -> None:
     cipher = Cipher(base64_key=key, str_nonce=nonce)
     decrypted = cipher.decrypt_base64(data)
     click.echo(f"Decrypting data: {decrypted.decode()}")
+    return decrypted
 
 
 @cli.command()
