@@ -18,6 +18,9 @@ test: ## Test the code with pytest
 	$(eval args ?= --pdb)
 	poetry run pytest --cov exep_tools --doctest-modules --maxfail 1 ${args}
 
+example/click-commands.py:
+	@poetry run python example/click-command.py check
+
 .PHONY: build
 build: clean-build ## Build wheel file using poetry
 	@echo "🚀 Creating wheel file: $(uname -a)"
