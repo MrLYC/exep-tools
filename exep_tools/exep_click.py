@@ -23,8 +23,8 @@ DELEGATOR = ExDelegator()
 
 
 class ExOption(click.Option):
-    def get_default(self, ctx: click.Context) -> Any:
-        default = super().get_default(ctx)
+    def get_default(self, ctx: click.Context, *args: Any, **kwargs: Any) -> Any:
+        default = super().get_default(ctx, *args, **kwargs)
         if default is not None:
             return default
 

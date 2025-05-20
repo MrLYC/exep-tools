@@ -1,8 +1,10 @@
 import json
+import time
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from exep_tools.crypto import Cipher
 from exep_tools.ex import EX, EXEP, EXLoader
@@ -81,6 +83,24 @@ class TestEX:
 
         assert expired_ex.is_expired(now) is True
         assert valid_ex.is_expired(now) is False
+
+    def test_excrypt_and_decrypt_ex(self, cipher, ex_data):
+        """测试EX对象的加密和解密"""
+        from exep_tools.ex import decrypt_ex, excrypt_ex
+
+        # 创建EX对象
+        ex = EX(meta=ex_data["meta"], payload=ex_data["payload"])
+
+        # 加密
+        encrypted = excrypt_ex(ex, cipher)
+        assert isinstance(encrypted, str)
+        assert len(encrypted) > 0
+
+        # 解密
+        decrypted = decrypt_ex(encrypted, cipher)
+        assert isinstance(decrypted, EX)
+        assert decrypted.meta == ex.meta
+        assert decrypted.payload == ex.payload
 
 
 class TestEXEP:
@@ -243,3 +263,173 @@ class TestEXLoader:
         assert secondary_path.exists()
         assert secondary_path.is_symlink()
         assert secondary_path.resolve() == primary_path.resolve()
+
+    def test_fetch_ex_from_exep_error_handling(self, cipher, exep_data, requests_mock):
+        """测试_fetch_ex_from_exep方法的错误处理"""
+        exep = EXEP.from_json(json.dumps(exep_data))
+        loader = EXLoader(cipher)
+
+        # 情况1: 请求异常
+        requests_mock.get(exep.url, exc=requests.RequestException("Connection error"))
+        with pytest.raises(RuntimeError, match="请求 EX 失败"):
+            loader._fetch_ex_from_exep(exep)
+
+        # 情况2: 状态码错误
+        requests_mock.get(exep.url, status_code=404, text="Not Found")
+        with pytest.raises(RuntimeError, match="请求 EX 失败"):
+            loader._fetch_ex_from_exep(exep)
+
+        # 情况3: 缺少必要的响应头
+        requests_mock.get(
+            exep.url,
+            status_code=200,
+            text="success",
+            headers={"Date": datetime.now(UTC).strftime("%a, %d %b %Y %H:%M:%S GMT")},
+        )
+        with pytest.raises(RuntimeError, match="响应头缺少必需的字段"):
+            loader._fetch_ex_from_exep(exep)
+
+        # 情况4: 缺少Date头
+        exep_no_header = EXEP(
+            meta=exep.meta,
+            payload={**exep.payload, "response_headers": []},
+        )
+        requests_mock.get(
+            exep.url,
+            status_code=200,
+            text="success",
+            headers={},
+        )
+        with pytest.raises(RuntimeError, match="响应头缺少 Date 字段"):
+            loader._fetch_ex_from_exep(exep_no_header)
+
+    def test_load_from_exep_expired(self, cipher, exep_data):
+        """测试加载过期的EXEP"""
+        # 创建过期的EXEP数据
+        past_time = int((datetime.now(UTC) - timedelta(days=1)).timestamp())
+        expired_exep_data = {**exep_data, "meta": {**exep_data["meta"], "expire": past_time}}
+
+        # 加密EXEP数据
+        exep_json = json.dumps(expired_exep_data)
+        encrypted_exep = cipher.encrypt_base64(exep_json.encode()).decode()
+
+        # 创建EXLoader
+        loader = EXLoader(cipher)
+
+        # 测试加载过期的EXEP
+        with pytest.raises(RuntimeError, match="EXEP 已过期"):
+            loader.load_from_exep(encrypted_exep)
+
+    def test_get_file_timestamp(self, cipher, tmp_path):
+        """测试_get_file_timestamp方法"""
+        # 创建测试文件
+        test_file = tmp_path / "test_file"
+        with open(test_file, "w") as f:
+            f.write("test content")
+
+        # 创建EXLoader
+        loader = EXLoader(cipher)
+
+        # 获取文件时间戳
+        timestamp = loader._get_file_timestamp(str(test_file))
+
+        # 验证时间戳是整数且大于0
+        assert isinstance(timestamp, int)
+        assert timestamp > 0
+
+        # 验证时间戳至少等于当前时间
+        current_time = int(time.time())
+        assert timestamp >= current_time
+
+    def test_save_ex_to_local(self, cipher, ex_data, tmp_path):
+        """测试save_ex_to_local方法"""
+        # 创建EX对象
+        ex = EX(meta=ex_data["meta"], payload=ex_data["payload"])
+
+        # 创建测试目录作为搜索路径
+        test_dir = tmp_path / "test_dir"
+        test_dir.mkdir()
+        test_file = test_dir / "test.ex"
+
+        # 创建EXLoader并修改_get_search_paths方法
+        loader = EXLoader(cipher)
+        loader._get_search_paths = lambda filename=None: [str(test_file)]
+
+        # 模拟_save_to_local方法
+        with patch.object(loader, "_save_to_local") as mock_save:
+            # 保存EX到本地
+            loader.save_ex_to_local(ex, "test.ex")
+
+            # 验证_save_to_local方法被正确调用
+            mock_save.assert_called_once()
+
+            # 获取调用参数
+            encrypted_content = mock_save.call_args[0][0]
+            filename = mock_save.call_args[0][1]
+
+            # 解密内容并验证
+            decrypted_ex = loader.cipher.decrypt_base64(encrypted_content).decode()
+            assert json.loads(decrypted_ex)["meta"] == ex.meta
+            assert json.loads(decrypted_ex)["payload"] == ex.payload
+            assert filename == "test.ex"
+
+    def test_symlink_error_handling(self, cipher, tmp_path, caplog):
+        """测试创建符号链接时的错误处理"""
+        import logging
+
+        # 捕获日志
+        caplog.set_level(logging.INFO)
+
+        # 创建临时目录作为搜索路径
+        primary_path = tmp_path / "primary" / ".ex"
+        secondary_path = tmp_path / "secondary" / ".ex"
+
+        # 确保父目录存在
+        primary_path.parent.mkdir(parents=True, exist_ok=True)
+        secondary_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # 创建已存在的文件（非符号链接）
+        with open(secondary_path, "w") as f:
+            f.write("existing content")
+
+        # 创建EXLoader并修改_get_search_paths方法
+        loader = EXLoader(cipher)
+        loader._get_search_paths = lambda filename=None: [str(primary_path), str(secondary_path)]
+
+        # 模拟os.symlink抛出异常
+        with patch("os.symlink", side_effect=OSError("Symlink error")):
+            # 保存到本地
+            loader._save_to_local("encrypted content")
+
+            # 验证主文件已创建
+            assert primary_path.exists()
+            assert primary_path.read_text() == "encrypted content"
+
+            # 验证日志记录了错误
+            assert "创建符号链接失败" in caplog.text
+
+    def test_load_from_local_exception_handling(self, cipher, tmp_path, caplog):
+        """测试从本地加载时的异常处理"""
+        import logging
+
+        # 捕获日志
+        caplog.set_level(logging.INFO)
+
+        # 创建无效的加密内容
+        invalid_content = "invalid encrypted content"
+
+        # 创建临时文件
+        ex_file = tmp_path / ".ex"
+        with open(ex_file, "w") as f:
+            f.write(invalid_content)
+
+        # 创建EXLoader并重写_get_search_paths方法
+        loader = EXLoader(cipher)
+        loader._get_search_paths = lambda filename=None: [str(ex_file)]
+
+        # 从本地加载
+        result = loader.load_from_local()
+
+        # 验证结果为None且记录了异常
+        assert result is None
+        assert "加载本地 EX 文件失败" in caplog.text

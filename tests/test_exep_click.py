@@ -198,3 +198,140 @@ class TestExDelegator:
 
             # 当属性不存在于context.obj中时，应该返回None
             assert DELEGATOR.non_existent() is None
+
+    def test_delegator_usage_in_command(self):
+        """测试DELEGATOR在实际Command中的使用"""
+        import click
+        from click.testing import CliRunner
+
+        from exep_tools.exep_click import DELEGATOR
+
+        # 创建一个使用DELEGATOR的命令
+        @click.command()
+        def cmd():
+            value = DELEGATOR.test_key()
+            click.echo(f"Delegated value: {value}")
+
+        # 测试没有context.obj的情况
+        runner = CliRunner()
+        result = runner.invoke(cmd)
+        assert result.exit_code == 0
+        assert "Delegated value: None" in result.output
+
+        # 测试有context.obj的情况
+        runner = CliRunner()
+        ctx_obj = {"test_key": "delegated_value"}
+        result = runner.invoke(cmd, obj=ctx_obj)
+        assert result.exit_code == 0
+        assert "Delegated value: delegated_value" in result.output
+
+
+class TestExOption:
+    def test_option_default(self):
+        """测试ExOption获取默认值"""
+        import click
+
+        from exep_tools.exep_click import ExOption
+
+        # 创建一个模拟的上下文
+        ctx = MagicMock(spec=click.Context)
+        ctx.obj = {"test_option": "value_from_obj"}
+
+        # 创建一个ExOption实例
+        option = ExOption(["--test-option"])
+        option.name = "test_option"
+
+        # 模拟超类方法返回None
+        with patch.object(click.Option, "get_default", return_value=None):
+            # 测试从ctx.obj获取值
+            value = option.get_default(ctx)
+            assert value == "value_from_obj"
+
+        # 测试没有ctx.obj的情况
+        ctx.obj = None
+        with patch.object(click.Option, "get_default", return_value=None):
+            value = option.get_default(ctx)
+            assert value is None
+
+        # 测试超类方法返回非None值的情况
+        with patch.object(click.Option, "get_default", return_value="default_value"):
+            value = option.get_default(ctx)
+            assert value == "default_value"
+
+    def test_option_in_command(self):
+        """测试ExOption在实际Command中的使用"""
+        import click
+        from click.testing import CliRunner
+
+        from exep_tools.exep_click import ExOption
+
+        # 创建一个使用ExOption的命令
+        @click.command()
+        @click.option("--test-option", cls=ExOption)
+        def cmd(test_option):
+            click.echo(f"Option value: {test_option}")
+
+        # 测试命令行参数传递值
+        runner = CliRunner()
+        result = runner.invoke(cmd, ["--test-option", "cli_value"])
+        assert result.exit_code == 0
+        assert "Option value: cli_value" in result.output
+
+        # 测试从context.obj获取值
+        runner = CliRunner()
+        ctx_obj = {"test_option": "context_value"}
+        result = runner.invoke(cmd, obj=ctx_obj)
+        assert result.exit_code == 0
+        assert "Option value: context_value" in result.output
+
+        # 测试既没有命令行参数也没有context.obj值的情况
+        runner = CliRunner()
+        result = runner.invoke(cmd)
+        assert result.exit_code == 0
+        assert "Option value: None" in result.output
+
+    def test_integration_exgroup_with_exoption(self, key, encrypted_magic):
+        """测试ExGroup, ExOption和DELEGATOR的集成"""
+        import click
+        from click.testing import CliRunner
+
+        from exep_tools.exep_click import DELEGATOR, ExGroup, ExOption
+
+        # 创建一个使用所有组件的命令组
+        @click.group(cls=ExGroup, loader_key=key)
+        def cli():
+            pass
+
+        @cli.command()
+        @click.option("--test-option", cls=ExOption)
+        def cmd(test_option):
+            # 从option获取
+            click.echo(f"Option value: {test_option}")
+            # 从DELEGATOR获取
+            delegated = DELEGATOR.test_option()
+            click.echo(f"Delegated value: {delegated}")
+
+        # 设置模拟的EX对象和环境变量
+        mock_ex = MagicMock(spec=EX)
+        mock_ex.payload = {"test_option": "payload_value"}
+
+        with patch("exep_tools.exep_click.generate_nonce", return_value="test_nonce"):
+            with patch("exep_tools.exep_click.Cipher"):
+                with patch("exep_tools.exep_click.EXLoader") as mock_loader:
+                    mock_loader.return_value.load.return_value = mock_ex
+
+                    # 测试命令行参数优先级高于payload
+                    runner = CliRunner()
+                    with patch.dict(os.environ, {"EXEP": encrypted_magic}):
+                        result = runner.invoke(cli, ["cmd", "--test-option", "cli_value"])
+                        assert result.exit_code == 0
+                        assert "Option value: cli_value" in result.output
+                        assert "Delegated value: payload_value" in result.output
+
+                    # 测试从payload获取值
+                    runner = CliRunner()
+                    with patch.dict(os.environ, {"EXEP": encrypted_magic}):
+                        result = runner.invoke(cli, ["cmd"])
+                        assert result.exit_code == 0
+                        assert "Option value: payload_value" in result.output
+                        assert "Delegated value: payload_value" in result.output
