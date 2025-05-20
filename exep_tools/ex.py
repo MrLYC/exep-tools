@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 import requests
 from dateutil import parser as dateutil_parser
+from requests import Session
 
 from exep_tools.crypto import Cipher
 
@@ -103,7 +104,7 @@ class EXLoader:
     支持通过 EXEP 远程拉取和从本地文件加载两种方式。
     """
 
-    def __init__(self, cipher: Cipher):
+    def __init__(self, cipher: Cipher) -> None:
         """
         初始化 EX 加载器
 
@@ -112,6 +113,7 @@ class EXLoader:
         """
         self.cipher = cipher
         self._filename = ".ex"  # 默认文件名
+        self._session = Session()
 
     def _get_search_paths(self, filename: Optional[str] = None) -> list[str]:
         """
@@ -182,7 +184,7 @@ class EXLoader:
             RuntimeError: 如果请求失败或响应头验证失败
         """
         try:
-            response = requests.get(exep.url, headers=exep.request_headers, params=exep.queries, timeout=30)
+            response = self._session.get(exep.url, headers=exep.request_headers, params=exep.queries, timeout=30)
             response.raise_for_status()
 
             # 验证响应头

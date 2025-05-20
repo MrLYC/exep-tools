@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 import click
 from Crypto.Random import get_random_bytes
 
-from exep_tools.crypto import Cipher
-from exep_tools.ex import EX, EXLoader, excrypt_ex
+from exep_tools.crypto import Cipher, generate_nonce
+from exep_tools.ex import EX, EXEP, excrypt_ex
 
 now = datetime.now(UTC)
 
@@ -35,7 +35,7 @@ def generate_key(length: int) -> None:
 
 
 @cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for encrypting")
+@click.option("-k", "--key", prompt="Key", envvar="EXK", help="Key for encrypting")
 @click.option("-d", "--data", prompt="Data", help="Data to encrypt")
 @click.option(
     "-n",
@@ -55,7 +55,7 @@ def encrypt_data(key: str, data: str, nonce: str) -> None:
 
 
 @cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
+@click.option("-k", "--key", prompt="Key", envvar="EXK", help="Key for decrypting")
 @click.option("-d", "--data", prompt="Data", help="Data to decrypt")
 @click.option(
     "-n",
@@ -75,7 +75,7 @@ def decrypt_data(key: str, data: str, nonce: str) -> None:
 
 
 @cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
+@click.option("-k", "--key", prompt="Key", envvar="EXK", help="Key for decrypting")
 @click.option(
     "-i", "--input-file", prompt="Input file", type=click.Path(exists=True), help="Path to the encrypted file"
 )
@@ -104,7 +104,7 @@ def encrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
 
 
 @cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
+@click.option("-k", "--key", prompt="Key", envvar="EXK", help="Key for decrypting")
 @click.option(
     "-i", "--input-file", prompt="Input file", type=click.Path(exists=True), help="Path to the encrypted file"
 )
@@ -135,13 +135,13 @@ def decrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
 
 # Magic结构: access_token, base_url, until_ts, ref_name, remote_file, local_file, allow_commands, disallow_commands, environments
 @cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
+@click.option("-k", "--key", prompt="Key", envvar="EXK", help="Key for decrypting")
 @click.option(
     "-n",
-    "--name",
-    prompt="Name",
+    "--nonce",
+    prompt="Nonce",
     envvar="EXLN",
-    help="Name for the entry",
+    help="Nonce for the entry",
 )
 @click.option("-o", "--output", prompt="Output file", help="Path to save the encrypted .ex file")
 @click.option(
@@ -158,7 +158,7 @@ def decrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
 )
 def generate_ex(
     key: str,
-    name: str,
+    nonce: str,
     output: str,
     meta: str,
     payload: str,
@@ -166,7 +166,7 @@ def generate_ex(
     """
     生成加密后的 EX 文件。
     """
-    cipher = Cipher(base64_key=key, str_nonce=name)
+    cipher = Cipher(base64_key=key, str_nonce=nonce)
 
     # 创建 EX 对象
     ex = EX(
@@ -181,31 +181,139 @@ def generate_ex(
         f.write(encrypted_ex)
 
     click.echo(f"Encrypted EX file saved to {output}")
+    return encrypted_ex
 
 
 @cli.command()
-@click.option("-k", "--key", prompt="Key", envvar="EXLK", help="Key for decrypting")
+@click.option("-k", "--key", prompt="Key", envvar="EXK", help="Key for decrypting")
 @click.option(
     "-n",
     "--nonce",
     prompt="Nonce",
     envvar="EXLN",
-    help="Nonce encryption",
+    help="Nonce for the entry",
 )
-@click.option("-e", "--exep", prompt="EXEP content", envvar="EXEP", help="EXEP content")
-def validate_exep(key: str, nonce: str, exep: str) -> None:
+@click.option("-o", "--output", prompt="Output file", help="Path to save the encrypted .ex file")
+@click.option(
+    "-N",
+    "--name",
+    prompt="Name",
+    help="Name for the entry",
+)
+@click.option(
+    "-e",
+    "--expire",
+    prompt="Expire time",
+    type=int,
+    default=f"{int(now.timestamp() + 86400)}",
+    help="Expire time for the entry",
+)
+@click.option(
+    "-u",
+    "--url",
+    prompt="URL",
+    help="远程请求的URL地址",
+)
+@click.option(
+    "--request-header",
+    multiple=True,
+    help="HTTP请求头，格式为'名称:值'，可多次指定",
+)
+@click.option(
+    "--query",
+    multiple=True,
+    help="URL查询参数，格式为'名称:值'，可多次指定",
+)
+@click.option(
+    "--response-header",
+    multiple=True,
+    help="需要验证的响应头名称，可多次指定",
+)
+def generate_exep(
+    key: str,
+    nonce: str,
+    output: str,
+    name: str,
+    expire: int,
+    url: str,
+    request_header: tuple,
+    query: tuple,
+    response_header: tuple,
+):
     """
-    验证 EXEP 文件内容是否有效。
-    """
-    try:
-        cipher = Cipher(base64_key=key, str_nonce=nonce)
-        loader = EXLoader(cipher=cipher)
-        ex = loader.load_from_exep(exep)
-    except Exception as e:
-        click.echo(f"验证 EXEP 文件失败: {e}", err=True)
-        exit(1)
+    生成加密后的 EXEP 文件。
 
-    click.echo(f"EXEP 验证成功，meta 个数: {len(ex.meta)}， payload 个数: {len(ex.payload)}")
+    EXEP包含有关远程请求获取EX的配置信息，包括URL、请求头、查询参数和响应头验证等。
+    """
+    # 解析请求头
+    request_headers = {}
+    for h in request_header:
+        try:
+            k, v = h.split(":", 1)
+            request_headers[k.strip()] = v.strip()
+        except ValueError:
+            click.echo(f"警告: 忽略无效的请求头格式 '{h}'，应为 '名称:值'")
+
+    # 解析查询参数
+    queries = {}
+    for q in query:
+        try:
+            k, v = q.split(":", 1)
+            queries[k.strip()] = v.strip()
+        except ValueError:
+            click.echo(f"警告: 忽略无效的查询参数格式 '{q}'，应为 '名称:值'")
+
+    # 解析响应头验证列表
+    response_headers = [h.strip() for h in response_header]
+
+    cipher = Cipher(base64_key=key, str_nonce=nonce)
+
+    # 创建 EXEP 对象
+    exep = EXEP(
+        meta={
+            "expire": expire,
+            "name": name,
+        },
+        payload={
+            "url": url,
+            "request_headers": request_headers,
+            "queries": queries,
+            "response_headers": response_headers,
+        },
+    )
+
+    # 使用 excrypt_ex 函数加密 EXEP 对象
+    encrypted_exep = excrypt_ex(exep, cipher)
+
+    with open(output, "w") as f:
+        f.write(encrypted_exep)
+
+    # 输出摘要
+    click.echo(f"已加密的 EXEP 文件已保存到 {output}")
+    click.echo("配置摘要:")
+    click.echo(f"  名称: {name}")
+    click.echo(f"  过期时间: {datetime.fromtimestamp(expire, UTC)}")
+    click.echo(f"  URL: {url}")
+    if request_headers:
+        click.echo(f"  请求头: {len(request_headers)}个")
+    if queries:
+        click.echo(f"  查询参数: {len(queries)}个")
+    if response_headers:
+        click.echo(f"  响应头验证: {', '.join(response_headers)}")
+
+    return encrypted_exep
+
+
+@cli.command()
+@click.option("-n", "--name", prompt="Name", envvar="EXLN", help="Name for the entry")
+@click.option("-b", "--base", prompt="Base Name", envvar="EXB", help="Base name for the entry")
+def make_nonce(name: str, base: str) -> None:
+    """
+    生成 nonce 值。
+    """
+    nonce = generate_nonce(name, base)
+    click.echo(f"Nonce: {nonce}")
+    return nonce
 
 
 if __name__ == "__main__":

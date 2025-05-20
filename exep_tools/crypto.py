@@ -1,5 +1,7 @@
 import base64
+import codecs
 from dataclasses import InitVar, dataclass
+from hashlib import sha256
 from typing import Any
 
 from Crypto.Cipher import AES
@@ -22,8 +24,8 @@ class Cipher:
             self.key = str_key.encode()
         elif base64_key:
             self.key = base64.b64decode(base64_key)
-        elif self.rot13_key:
-            self.key = base64.b64decode(self.rot13_key.encode("rot13"))
+        elif rot13_key:
+            self.key = base64.b64decode(codecs.decode(rot13_key, "rot_13"))
 
         if str_nonce:
             self.nonce = str_nonce.encode()
@@ -52,3 +54,8 @@ class Cipher:
         """使用AES解密base64编码的数据"""
         ciphertext = base64.b64decode(data)
         return self.decrypt(ciphertext)
+
+
+def generate_nonce(name: str, base: str) -> str:
+    """生成nonce"""
+    return sha256(f"{name}{base}".encode()).hexdigest()[:10]

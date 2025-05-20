@@ -1,53 +1,32 @@
 import os
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
+import click
 from click import Group as BaseGroup
 
-from exep_tools.crypto import Cipher
-from exep_tools.ex import EX, EXLoader
-
-if TYPE_CHECKING:
-    import click
+from exep_tools.crypto import Cipher, generate_nonce
+from exep_tools.ex import EXLoader
 
 
-class ContextWrapper:
-    def __init__(self, ctx: "click.Context", ex: EX) -> None:
-        self.__ctx = ctx
-        self.__env = ex.payload
+class ExDelegator:
+    def __getattr__(self, item: str) -> callable:
+        def wrapper(*args: Any, **kwargs: Any) -> Optional[Any]:
+            ctx = click.get_current_context()
+            if not ctx.obj:
+                return None
 
-    def __getattr__(self, item: str):
-        return getattr(self.__ctx, item)
+            return ctx.obj.get(item, None)
 
-    def __enter__(self):
-        """实现上下文管理器协议"""
-        if hasattr(self.__ctx, "__enter__"):
-            self.__ctx.__enter__()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """实现上下文管理器协议"""
-        if hasattr(self.__ctx, "__exit__"):
-            return self.__ctx.__exit__(exc_type, exc_val, exc_tb)
-        return False
-
-    def lookup_default(self, name: str, call: bool = True) -> Optional[Any]:
-        """
-        获取上下文中的默认值，如果不存在则返回 None
-        """
-
-        value = self.__ctx.lookup_default(name, call)
-        if value is not None:
-            return value
-        elif name in self.__env:
-            return self.__env[name]
-
-        return None
+        return wrapper
 
 
-class ExepGroup(BaseGroup):
+DELEGATOR = ExDelegator()
+
+
+class ExGroup(BaseGroup):
     def __init__(self, loader_key: str = "", *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.loader_key = loader_key
+        self.__loader_key = loader_key
 
     def make_context(
         self,
@@ -57,15 +36,17 @@ class ExepGroup(BaseGroup):
         **extra,
     ) -> "click.Context":
         ctx = super().make_context(info_name, args, parent, **extra)
-        if not self.loader_key:
+        if not self.__loader_key:
             return ctx
 
         exep = os.getenv("EXEP")
         if not exep:
             return ctx
 
-        cipher = Cipher(rot13_key=self.loader_key, str_nonce=info_name)
+        nonce = generate_nonce(os.getenv("EXLN", ""), ctx.info_name)
+        cipher = Cipher(rot13_key=self.__loader_key, str_nonce=nonce)
         loader = EXLoader(cipher=cipher)
         ex = loader.load(exep_content=exep)
+        ctx.obj = ex.payload
 
-        return ContextWrapper(ctx, ex)
+        return ctx
