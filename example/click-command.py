@@ -28,6 +28,8 @@ def cli(ctx: click.Context):
 def check(magic: str):
     """检查服务是否正常工作"""
     print(f"Magic number: {magic}")
+    if magic != "wow":
+        click.fail("Magic mismatch!")
 
 
 class ExHandler(BaseHTTPRequestHandler):
