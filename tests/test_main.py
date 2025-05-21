@@ -33,6 +33,29 @@ def test_encrypt_and_decrypt_data():
     assert "Decrypting data: hello world" in result2.output
 
 
+def test_encrypt_and_decrypt_data_quiet():
+    """测试 quiet 模式的加密和解密数据功能"""
+    runner = CliRunner()
+    key = base64.b64encode(os.urandom(32)).decode()
+    nonce = "nonce123"
+    data = "hello world"
+
+    # 使用 quiet 模式加密
+    result = runner.invoke(main.encrypt_data, ["-k", key, "-d", data, "-n", nonce, "-q"])
+    assert result.exit_code == 0
+    # 确保输出中不包含描述文本
+    assert "Encrypting data:" not in result.output
+    encrypted = result.output.strip()
+
+    # 使用 quiet 模式解密
+    result2 = runner.invoke(main.decrypt_data, ["-k", key, "-d", encrypted, "-n", nonce, "-q"])
+    assert result2.exit_code == 0
+    # 确保输出中不包含描述文本
+    assert "Decrypting data:" not in result2.output
+    # 验证解密后的数据与原始数据相同
+    assert result2.output.strip() == data
+
+
 def test_encrypt_file_and_decrypt_file(tmp_path):
     runner = CliRunner()
     key = base64.b64encode(os.urandom(32)).decode()
@@ -197,11 +220,12 @@ def test_generate_exep(tmp_path):
     assert exep.meta["name"] == name
 
 
-def test_invalid_request_header_format():
+def test_invalid_request_header_format(tmp_path):
     """测试无效的请求头格式处理"""
     runner = CliRunner()
     key = base64.b64encode(os.urandom(32)).decode()
     nonce = "test_nonce"
+    output_file = str(tmp_path / "invalid_header.exep")
 
     # 使用无效格式的请求头
     result = runner.invoke(
@@ -212,7 +236,7 @@ def test_invalid_request_header_format():
             "-n",
             nonce,
             "-o",
-            "output.exep",
+            output_file,
             "-N",
             "test",
             "-u",
@@ -227,11 +251,12 @@ def test_invalid_request_header_format():
     assert "警告: 忽略无效的请求头格式 'invalid-format'，应为 '名称:值'" in result.output
 
 
-def test_invalid_query_format():
+def test_invalid_query_format(tmp_path):
     """测试无效的查询参数格式处理"""
     runner = CliRunner()
     key = base64.b64encode(os.urandom(32)).decode()
     nonce = "test_nonce"
+    output_file = str(tmp_path / "invalid_query.exep")
 
     # 使用无效格式的查询参数
     result = runner.invoke(
@@ -242,7 +267,7 @@ def test_invalid_query_format():
             "-n",
             nonce,
             "-o",
-            "output.exep",
+            output_file,
             "-N",
             "test",
             "-u",

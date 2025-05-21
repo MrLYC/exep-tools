@@ -44,13 +44,22 @@ def generate_key(length: int) -> None:
     envvar="EXLN",
     help="Nonce for AES encryption (optional)",
 )
-def encrypt_data(key: str, data: str, nonce: str) -> None:
+@click.option(
+    "-q",
+    "--quiet",
+    is_flag=True,
+    help="只输出核心内容，不加任何描述和格式",
+)
+def encrypt_data(key: str, data: str, nonce: str, quiet: bool = False) -> None:
     """
     使用指定密钥和 nonce 对明文数据进行加密，输出 base64 编码的密文。
     """
     cipher = Cipher(base64_key=key, str_nonce=nonce)
     encrypted = cipher.encrypt_base64(data.encode("utf-8"))
-    click.echo(f"Encrypting data: {encrypted.decode()}")
+    if quiet:
+        click.echo(encrypted.decode())
+    else:
+        click.echo(f"Encrypting data: {encrypted.decode()}")
     return encrypted
 
 
@@ -64,13 +73,22 @@ def encrypt_data(key: str, data: str, nonce: str) -> None:
     envvar="EXLN",
     help="Nonce for AES encryption (optional)",
 )
-def decrypt_data(key: str, data: str, nonce: str) -> None:
+@click.option(
+    "-q",
+    "--quiet",
+    is_flag=True,
+    help="只输出核心内容，不加任何描述和格式",
+)
+def decrypt_data(key: str, data: str, nonce: str, quiet: bool = False) -> None:
     """
     使用指定密钥和 nonce 对 base64 编码的密文进行解密，输出明文数据。
     """
     cipher = Cipher(base64_key=key, str_nonce=nonce)
     decrypted = cipher.decrypt_base64(data)
-    click.echo(f"Decrypting data: {decrypted.decode()}")
+    if quiet:
+        click.echo(decrypted.decode())
+    else:
+        click.echo(f"Decrypting data: {decrypted.decode()}")
     return decrypted
 
 
