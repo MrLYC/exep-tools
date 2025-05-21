@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
@@ -433,3 +434,47 @@ class TestEXLoader:
         # 验证结果为None且记录了异常
         assert result is None
         assert "加载本地 EX 文件失败" in caplog.text
+
+    def test_get_search_paths_deduplication(self, cipher):
+        """测试_get_search_paths方法的重复路径去除功能"""
+        loader = EXLoader(cipher)
+
+        # 保存原始方法
+        original_getcwd = os.getcwd
+        original_expanduser = os.path.expanduser
+        original_abspath = os.path.abspath
+
+        try:
+            # 模拟工作目录和home目录相同的情况
+            test_dir = "/test/dir"
+            os.getcwd = lambda: test_dir
+            os.path.expanduser = lambda path: test_dir if path == "~" else path
+            # 确保abspath返回的是输入路径（模拟已是绝对路径）
+            os.path.abspath = lambda path: path
+
+            # 调用方法
+            paths = loader._get_search_paths("test.ex")
+
+            # 验证返回的路径列表只有一个元素（因为工作目录和home目录相同）
+            assert len(paths) == 1
+            assert paths[0] == os.path.join(test_dir, "test.ex")
+
+            # 验证默认文件名
+            paths_default = loader._get_search_paths()
+            assert paths_default[0] == os.path.join(test_dir, ".ex")
+
+        finally:
+            # 恢复原始方法
+            os.getcwd = original_getcwd
+            os.path.expanduser = original_expanduser
+            os.path.abspath = original_abspath
+
+        # 测试正常情况下返回两个不同的路径
+        # 使用具体的绝对路径
+        with patch("os.getcwd", return_value="/work/dir"):
+            with patch("os.path.expanduser", return_value="/home/dir"):
+                with patch("os.path.abspath", side_effect=lambda p: p):  # 简单返回输入路径
+                    paths = loader._get_search_paths("test.ex")
+                    assert len(paths) == 2
+                    assert paths[0] == "/work/dir/test.ex"
+                    assert paths[1] == "/home/dir/test.ex"

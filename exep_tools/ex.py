@@ -123,13 +123,21 @@ class EXLoader:
             filename: 可选，EX 文件名，默认为 .ex
 
         Returns:
-            list[str]: 搜索路径列表
+            list[str]: 搜索路径列表，去除重复路径
         """
         filename = filename or self._filename
-        return [
-            os.path.join(os.getcwd(), filename),  # 工作目录
-            os.path.join(os.path.expanduser("~"), filename),  # home 目录
-        ]
+        work_dir = os.getcwd()
+        home_dir = os.path.expanduser("~")
+
+        # 使用绝对路径确保路径标准化
+        work_path = os.path.abspath(os.path.join(work_dir, filename))
+        home_path = os.path.abspath(os.path.join(home_dir, filename))
+
+        # 简单比较两个路径，如果相同只返回一个
+        if work_path == home_path:
+            return [work_path]
+        else:
+            return [work_path, home_path]
 
     def load_from_exep(self, exep_content: str) -> EX:
         """
