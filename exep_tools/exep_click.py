@@ -1,5 +1,5 @@
 import os
-from typing import Any, Optional
+from typing import Any, Optional, Callable
 
 import click
 
@@ -8,7 +8,7 @@ from exep_tools.ex import EXLoader
 
 
 class ExDelegator:
-    def __getattr__(self, item: str) -> callable:
+    def __getattr__(self, item: str) -> Callable[..., Optional[Any]]:
         def wrapper(*args: Any, **kwargs: Any) -> Optional[Any]:
             ctx = click.get_current_context()
             if not ctx.obj:
