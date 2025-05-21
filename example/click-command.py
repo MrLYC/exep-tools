@@ -1,6 +1,5 @@
 import os
 import threading
-import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from tempfile import TemporaryDirectory
 
@@ -8,6 +7,8 @@ import click
 
 from exep_tools import ClickGroup, ClickOption, D
 from exep_tools import main as ex_main
+
+assert ex_main.generate_key.callback
 
 key, loader_key = ex_main.generate_key.callback(32)
 name = "testing"
@@ -59,8 +60,11 @@ def main():
     print("Server started.")
 
     with TemporaryDirectory() as temp_dir:
+        assert ex_main.make_nonce.callback
         nonce = ex_main.make_nonce.callback(name=name, base="click-command.py")
         expire = int(time.time() + 3600)
+
+        assert ex_main.generate_ex.callback
         ex = ex_main.generate_ex.callback(
             key=key,
             nonce=nonce,
@@ -70,6 +74,7 @@ def main():
         )
         ExHandler.ex = ex.encode("utf-8")
 
+        assert ex_main.generate_exep.callback
         exep = ex_main.generate_exep.callback(
             key=key,
             nonce=nonce,

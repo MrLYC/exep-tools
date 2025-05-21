@@ -21,9 +21,7 @@ def cli(ctx: click.Context) -> None:
 @cli.command()
 @click.option("--length", default=32, help="Length of the generated key")
 def generate_key(length: int) -> tuple[str, str]:
-    """
-    生成指定长度的 base64 加密密钥，并输出。
-    """
+    # 生成指定长度的 base64 加密密钥，并输出。
     key_bytes = get_random_bytes(length)
     key = base64.b64encode(key_bytes).decode()
     loader_key = codecs.encode(key, "rot13")
@@ -48,12 +46,10 @@ def generate_key(length: int) -> tuple[str, str]:
     "-q",
     "--quiet",
     is_flag=True,
-    help="只输出核心内容，不加任何描述和格式",
+    help="Output only the core content without any description or formatting",
 )
 def encrypt_data(key: str, data: str, nonce: str, quiet: bool = False) -> str:
-    """
-    使用指定密钥和 nonce 对明文数据进行加密，输出 base64 编码的密文。
-    """
+    # 使用指定密钥和 nonce 对明文数据进行加密，输出 base64 编码的密文。
     cipher = Cipher(base64_key=key, str_nonce=nonce)
     encrypted = cipher.encrypt_base64(data.encode()).decode()
     if quiet:
@@ -77,12 +73,10 @@ def encrypt_data(key: str, data: str, nonce: str, quiet: bool = False) -> str:
     "-q",
     "--quiet",
     is_flag=True,
-    help="只输出核心内容，不加任何描述和格式",
+    help="Output only the core content without any description or formatting",
 )
 def decrypt_data(key: str, data: str, nonce: str, quiet: bool = False) -> str:
-    """
-    使用指定密钥和 nonce 对 base64 编码的密文进行解密，输出明文数据。
-    """
+    # 使用指定密钥和 nonce 对 base64 编码的密文进行解密，输出明文数据。
     cipher = Cipher(base64_key=key, str_nonce=nonce)
     decrypted = cipher.decrypt_base64(data).decode()
     if quiet:
@@ -106,9 +100,7 @@ def decrypt_data(key: str, data: str, nonce: str, quiet: bool = False) -> str:
     help="Nonce for AES encryption (optional)",
 )
 def encrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
-    """
-    使用指定密钥和 nonce 对输入文件内容进行加密，结果保存为 base64 编码的密文文件。
-    """
+    # 使用指定密钥和 nonce 对输入文件内容进行加密，结果保存为 base64 编码的密文文件。
     with open(input_file, encoding="utf-8") as f:
         plaintext = f.read()
 
@@ -135,9 +127,7 @@ def encrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
     help="Nonce for AES encryption (optional)",
 )
 def decrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
-    """
-    使用指定密钥和 nonce 对加密的文件进行解密，输出为明文文件。
-    """
+    # 使用指定密钥和 nonce 对加密的文件进行解密，输出为明文文件。
     with open(input_file, "rb") as f:
         encrypted = f.read()
 
@@ -181,9 +171,7 @@ def generate_ex(
     meta: str,
     payload: str,
 ):
-    """
-    生成加密后的 EX 文件。
-    """
+    # 生成加密后的 EX 文件。
     cipher = Cipher(base64_key=key, str_nonce=nonce)
 
     # 创建 EX 对象
@@ -230,22 +218,22 @@ def generate_ex(
     "-u",
     "--url",
     prompt="URL",
-    help="远程请求的URL地址",
+    help="URL address for remote requests",
 )
 @click.option(
     "--request-header",
     multiple=True,
-    help="HTTP请求头，格式为'名称:值'，可多次指定",
+    help="HTTP request headers in the format 'name:value', can be specified multiple times",
 )
 @click.option(
     "--query",
     multiple=True,
-    help="URL查询参数，格式为'名称:值'，可多次指定",
+    help="URL query parameters in the format 'name:value', can be specified multiple times",
 )
 @click.option(
     "--response-header",
     multiple=True,
-    help="需要验证的响应头名称，可多次指定",
+    help="Response header names to validate, can be specified multiple times",
 )
 def generate_exep(
     key: str,
@@ -258,11 +246,9 @@ def generate_exep(
     query: tuple,
     response_header: tuple,
 ):
-    """
-    生成加密后的 EXEP 文件。
-
-    EXEP包含有关远程请求获取EX的配置信息，包括URL、请求头、查询参数和响应头验证等。
-    """
+    # 生成加密后的 EXEP 文件。
+    #
+    # EXEP包含有关远程请求获取EX的配置信息，包括URL、请求头、查询参数和响应头验证等。
     # 解析请求头
     request_headers = {}
     for h in request_header:
@@ -270,7 +256,7 @@ def generate_exep(
             k, v = h.split(":", 1)
             request_headers[k.strip()] = v.strip()
         except ValueError:
-            click.echo(f"警告: 忽略无效的请求头格式 '{h}'，应为 '名称:值'")
+            click.echo(f"Warning: Ignoring invalid request header format '{h}', should be 'name:value'", err=True)
 
     # 解析查询参数
     queries = {}
@@ -279,7 +265,7 @@ def generate_exep(
             k, v = q.split(":", 1)
             queries[k.strip()] = v.strip()
         except ValueError:
-            click.echo(f"警告: 忽略无效的查询参数格式 '{q}'，应为 '名称:值'")
+            click.echo(f"Warning: Ignoring invalid query parameter format '{q}', should be 'name:value'", err=True)
 
     # 解析响应头验证列表
     response_headers = [h.strip() for h in response_header]
@@ -307,17 +293,17 @@ def generate_exep(
         f.write(encrypted_exep)
 
     # 输出摘要
-    click.echo(f"已加密的 EXEP 文件已保存到 {output}")
-    click.echo("配置摘要:")
-    click.echo(f"  名称: {name}")
-    click.echo(f"  过期时间: {datetime.fromtimestamp(expire, UTC)}")
+    click.echo(f"Encrypted EXEP file saved to {output}")
+    click.echo("Configuration summary:")
+    click.echo(f"  Name: {name}")
+    click.echo(f"  Expiration time: {datetime.fromtimestamp(expire, UTC)}")
     click.echo(f"  URL: {url}")
     if request_headers:
-        click.echo(f"  请求头: {len(request_headers)}个")
+        click.echo(f"  Request headers: {len(request_headers)}")
     if queries:
-        click.echo(f"  查询参数: {len(queries)}个")
+        click.echo(f"  Query parameters: {len(queries)}")
     if response_headers:
-        click.echo(f"  响应头验证: {', '.join(response_headers)}")
+        click.echo(f"  Response headers to validate: {', '.join(response_headers)}")
 
     return encrypted_exep
 
@@ -326,9 +312,7 @@ def generate_exep(
 @click.option("-n", "--name", prompt="Name", envvar="EXLN", help="Name for the entry")
 @click.option("-b", "--base", prompt="Base Name", envvar="EXB", help="Base name for the entry")
 def make_nonce(name: str, base: str) -> str:
-    """
-    生成 nonce 值。
-    """
+    # 生成 nonce 值。
     nonce = generate_nonce(name, base)
     click.echo(f"Nonce: {nonce}")
     return nonce
