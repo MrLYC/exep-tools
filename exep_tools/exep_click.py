@@ -1,5 +1,5 @@
 import os
-from typing import Any, Optional, Callable
+from typing import Any, Callable, Optional
 
 import click
 
