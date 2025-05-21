@@ -372,5 +372,5 @@ def decrypt_ex(encrypted_ex: str, cipher: Cipher) -> EX:
     Returns:
         EX: 解密后的 EX 对象
     """
-    decrypted_ex = cipher.decrypt_base64(encrypted_ex.encode()).decode()
-    return EX.from_json(decrypted_ex)
+    decrypted_ex = cipher.decrypt_base64(encrypted_ex)
+    return EX.from_json(decrypted_ex.decode())

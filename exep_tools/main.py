@@ -20,7 +20,7 @@ def cli(ctx: click.Context) -> None:
 
 @cli.command()
 @click.option("--length", default=32, help="Length of the generated key")
-def generate_key(length: int) -> None:
+def generate_key(length: int) -> tuple[str, str]:
     """
     生成指定长度的 base64 加密密钥，并输出。
     """
@@ -50,16 +50,16 @@ def generate_key(length: int) -> None:
     is_flag=True,
     help="只输出核心内容，不加任何描述和格式",
 )
-def encrypt_data(key: str, data: str, nonce: str, quiet: bool = False) -> None:
+def encrypt_data(key: str, data: str, nonce: str, quiet: bool = False) -> str:
     """
     使用指定密钥和 nonce 对明文数据进行加密，输出 base64 编码的密文。
     """
     cipher = Cipher(base64_key=key, str_nonce=nonce)
-    encrypted = cipher.encrypt_base64(data.encode("utf-8"))
+    encrypted = cipher.encrypt_base64(data.encode()).decode()
     if quiet:
-        click.echo(encrypted.decode())
+        click.echo(encrypted)
     else:
-        click.echo(f"Encrypting data: {encrypted.decode()}")
+        click.echo(f"Encrypting data: {encrypted}")
     return encrypted
 
 
@@ -79,16 +79,16 @@ def encrypt_data(key: str, data: str, nonce: str, quiet: bool = False) -> None:
     is_flag=True,
     help="只输出核心内容，不加任何描述和格式",
 )
-def decrypt_data(key: str, data: str, nonce: str, quiet: bool = False) -> None:
+def decrypt_data(key: str, data: str, nonce: str, quiet: bool = False) -> str:
     """
     使用指定密钥和 nonce 对 base64 编码的密文进行解密，输出明文数据。
     """
     cipher = Cipher(base64_key=key, str_nonce=nonce)
-    decrypted = cipher.decrypt_base64(data)
+    decrypted = cipher.decrypt_base64(data).decode()
     if quiet:
-        click.echo(decrypted.decode())
+        click.echo(decrypted)
     else:
-        click.echo(f"Decrypting data: {decrypted.decode()}")
+        click.echo(f"Decrypting data: {decrypted}")
     return decrypted
 
 
@@ -325,7 +325,7 @@ def generate_exep(
 @cli.command()
 @click.option("-n", "--name", prompt="Name", envvar="EXLN", help="Name for the entry")
 @click.option("-b", "--base", prompt="Base Name", envvar="EXB", help="Base name for the entry")
-def make_nonce(name: str, base: str) -> None:
+def make_nonce(name: str, base: str) -> str:
     """
     生成 nonce 值。
     """

@@ -54,7 +54,7 @@ class ExGroup(click.Group):
         if not exep:
             return ctx
 
-        nonce = generate_nonce(os.getenv("EXLN", ""), ctx.info_name)
+        nonce = generate_nonce(os.getenv("EXLN", ""), ctx.info_name or "")
         cipher = Cipher(rot13_key=self.__loader_key, str_nonce=nonce)
         loader = EXLoader(cipher=cipher)
         ex = loader.load(exep_content=exep)
