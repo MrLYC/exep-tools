@@ -39,7 +39,7 @@ def generate_key(length: int) -> tuple[str, str]:
     "-n",
     "--nonce",
     prompt="Nonce",
-    envvar="EXLN",
+    envvar="EXN",
     help="Nonce for AES encryption (optional)",
 )
 @click.option(
@@ -66,7 +66,7 @@ def encrypt_data(key: str, data: str, nonce: str, quiet: bool = False) -> str:
     "-n",
     "--nonce",
     prompt="Nonce",
-    envvar="EXLN",
+    envvar="EXN",
     help="Nonce for AES encryption (optional)",
 )
 @click.option(
@@ -96,7 +96,7 @@ def decrypt_data(key: str, data: str, nonce: str, quiet: bool = False) -> str:
     "-n",
     "--nonce",
     prompt="Nonce",
-    envvar="EXLN",
+    envvar="EXN",
     help="Nonce for AES encryption (optional)",
 )
 def encrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
@@ -123,7 +123,7 @@ def encrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
     "-n",
     "--nonce",
     prompt="Nonce",
-    envvar="EXLN",
+    envvar="EXN",
     help="Nonce for AES encryption (optional)",
 )
 def decrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
@@ -148,7 +148,7 @@ def decrypt_file(key: str, input_file: str, output: str, nonce: str) -> None:
     "-n",
     "--nonce",
     prompt="Nonce",
-    envvar="EXLN",
+    envvar="EXN",
     help="Nonce for the entry",
 )
 @click.option("-o", "--output", prompt="Output file", help="Path to save the encrypted .ex file")
@@ -196,7 +196,7 @@ def generate_ex(
     "-n",
     "--nonce",
     prompt="Nonce",
-    envvar="EXLN",
+    envvar="EXN",
     help="Nonce for the entry",
 )
 @click.option("-o", "--output", prompt="Output file", help="Path to save the encrypted .ex file")
